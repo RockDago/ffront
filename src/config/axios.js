@@ -1,8 +1,8 @@
 // config/axios.js - VERSION CORRIGÉE (intercepteur 401 désactivé temporairement)
 import axios from "axios";
 
-export const API_URL = "http://127.0.0.1:8000/api";
-
+//export const API_URL = "http://127.0.0.1:8000/api";
+export const API_URL = "https://fosika.mesupres.edu.mg/api";
 const API = axios.create({
   baseURL: API_URL,
   withCredentials: true, // CRITIQUE pour les cookies de session

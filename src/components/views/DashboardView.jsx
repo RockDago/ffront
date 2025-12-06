@@ -3,1157 +3,1010 @@ import API from "../../config/axios";
 import Chart from "chart.js/auto";
 import { useNavigate } from "react-router-dom";
 
-// Palette plus sobre et limitée pour une IHM plus lisible
+// Couleurs graphiques
 const chartColors = [
-  { border: "#2B6CB0", background: "rgba(43,108,176,0.08)" }, // bleu doux
-  { border: "#6B7280", background: "rgba(107,114,128,0.08)" }, // gris moyen
-  { border: "#16A34A", background: "rgba(22,163,74,0.08)" }, // vert doux
-  { border: "#D97706", background: "rgba(217,119,6,0.06)" }, // orange discret
-  { border: "#44403C", background: "rgba(68,64,60,0.06)" }, // brun/gris
-  { border: "#475569", background: "rgba(71,85,105,0.06)" }, // indigo doux
+    { border: "#2B6CB0", background: "rgba(43,108,176,0.08)" },
+    { border: "#6B7280", background: "rgba(107,114,128,0.08)" },
+    { border: "#16A34A", background: "rgba(22,163,74,0.08)" },
+    { border: "#D97706", background: "rgba(217,119,6,0.06)" },
+    { border: "#44403C", background: "rgba(68,64,60,0.06)" },
+    { border: "#475569", background: "rgba(71,85,105,0.06)" },
 ];
 
-// Couleurs pour le diagramme circulaire
 const pieColors = [
-  "#2B6CB0",
-  "#6B7280",
-  "#16A34A",
-  "#D97706",
-  "#475569",
-  "#94A3B8",
-  "#CBD5E1",
-  "#9CA3AF",
+    "#2B6CB0",
+    "#6B7280",
+    "#16A34A",
+    "#D97706",
+    "#475569",
+    "#94A3B8",
+    "#CBD5E1",
+    "#9CA3AF",
 ];
 
-// Définition des catégories fixes
+// Catégories
 const defaultCategoryStructure = [
-  {
-    id: "faux-diplomes",
-    name: "Faux diplômes",
-    subtitle: "Délivrance illégale de diplômes",
-    icon: "📜",
-  },
-  {
-    id: "offre-formation-irreguliere",
-    name: "Offre de formation irrégulière (non habilité)",
-    subtitle: "Établissements non habilités",
-    icon: "🎓",
-  },
-  {
-    id: "recrutements-irreguliers",
-    name: "Recrutements irréguliers",
-    subtitle: "Transparence et intégrité",
-    icon: "👥",
-  },
-  {
-    id: "harcelement",
-    name: "Harcèlement",
-    subtitle: "Signalements de harcèlement",
-    icon: "⚠️",
-  },
-  {
-    id: "corruption",
-    name: "Corruption",
-    subtitle: "Signalements de corruption et malversations",
-    icon: "🔴",
-  },
-  {
-    id: "divers",
-    name: "Divers",
-    subtitle: "Autres signalements et irrégularités",
-    icon: "🏷️",
-  },
+    {
+        id: "faux-diplomes",
+        name: "Faux diplômes",
+        subtitle: "Délivrance illégale",
+        icon: "📜",
+    },
+    {
+        id: "offre-formation-irreguliere",
+        name: "Non habilité",
+        subtitle: "Offre irrégulière",
+        icon: "🎓",
+    },
+    {
+        id: "recrutements-irreguliers",
+        name: "Recrutements",
+        subtitle: "Irrégularités RH",
+        icon: "👥",
+    },
+    {
+        id: "harcelement",
+        name: "Harcèlement",
+        subtitle: "Signalements",
+        icon: "⚠️",
+    },
+    {
+        id: "corruption",
+        name: "Corruption",
+        subtitle: "Malversations",
+        icon: "🔴",
+    },
+    {
+        id: "divers",
+        name: "Divers",
+        subtitle: "Autres",
+        icon: "🏷️",
+    },
 ];
+
+// Composants UI (conservés de l'ancien code)
+const KPICard = ({ title, value, subtitle, icon, color, onClick, isActive }) => (
+    <div
+        onClick={onClick}
+        className={`bg-white rounded-xl p-5 shadow-sm border cursor-pointer transition-all duration-200 
+      ${
+            isActive
+                ? "ring-2 ring-blue-500 border-blue-500 bg-blue-50/30"
+                : "border-slate-100 hover:shadow-md hover:border-slate-300"
+        }`}
+    >
+        <div className="flex justify-between items-start">
+            <div>
+                <p
+                    className={`text-xs font-semibold uppercase tracking-wide ${
+                        isActive ? "text-blue-700" : "text-slate-500"
+                    }`}
+                >
+                    {title}
+                </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+                {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+            </div>
+            <div className={`p-3 rounded-lg ${color} bg-opacity-10`}>
+                <span className="text-2xl">{icon}</span>
+            </div>
+        </div>
+    </div>
+);
+
+const CategoryCard = ({ category }) => (
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition">
+        <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+                <span className="text-xl">{category.icon}</span>
+                <div>
+                    <p className="text-sm font-semibold text-slate-800">{category.name}</p>
+                    <p className="text-xs text-slate-400">{category.subtitle}</p>
+                </div>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{category.total}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 border-t border-slate-100 pt-3">
+            <div>
+                <p className="text-[11px] uppercase tracking-wide">En cours</p>
+                <p className="mt-1 font-semibold text-amber-600">{category.encours}</p>
+            </div>
+            <div>
+                <p className="text-[11px] uppercase tracking-wide">Traités</p>
+                <p className="mt-1 font-semibold text-emerald-600">
+                    {(category.soumis_bianco || 0) + (category.enquetes_completees || 0)}
+                </p>
+            </div>
+        </div>
+    </div>
+);
+
+const StatusBadge = ({ status }) => {
+    const map = {
+        en_cours: {
+            label: "En cours",
+            cls: "bg-blue-50 text-blue-700 border-blue-200",
+        },
+        finalise: {
+            label: "Soumis BIANCO",
+            cls: "bg-purple-50 text-purple-700 border-purple-200",
+        },
+        classifier: {
+            label: "Complété",
+            cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        },
+        doublon: {
+            label: "Doublon",
+            cls: "bg-slate-50 text-slate-600 border-slate-200",
+        },
+        refuse: {
+            label: "Refusé",
+            cls: "bg-red-50 text-red-600 border-red-200",
+        },
+    };
+    const cfg =
+        map[status] || {
+            label: status || "Inconnu",
+            cls: "bg-gray-50 text-gray-600 border-gray-200",
+        };
+    return (
+        <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.cls}`}
+        >
+      {cfg.label}
+    </span>
+    );
+};
 
 export default function DashboardView() {
-  const chartRef = useRef(null);
-  const barChartRef = useRef(null);
-  const pieChartRef = useRef(null);
-  const chartInstance = useRef(null);
-  const barChartInstance = useRef(null);
-  const pieChartInstance = useRef(null);
-  const navigate = useNavigate();
+    const chartRef = useRef(null);
+    const barChartRef = useRef(null);
+    const pieChartRef = useRef(null);
+    const chartInstance = useRef(null);
+    const barChartInstance = useRef(null);
+    const pieChartInstance = useRef(null);
 
-  const [categories, setCategories] = useState([]);
-  const [recentReports, setRecentReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState("year");
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [allReports, setAllReports] = useState([]);
-  const [globalStats, setGlobalStats] = useState({
-    total: 0,
-    en_cours: 0,
-    soumis_bianco: 0,
-    enquetes_completees: 0,
-  });
-  const [monthTotal, setMonthTotal] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [error, setError] = useState("");
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    initializeCategoriesWithZero();
-    fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    if (categories.length > 0 && allReports.length > 0) {
-      initializeChart();
-      initializeBarChart();
-      initializePieChart();
-      calculateMonthTotal();
-    }
-  }, [timeFilter, categories, allReports]);
-
-  const initializeCategoriesWithZero = () => {
-    const initialCategories = defaultCategoryStructure.map(
-      (category, index) => ({
-        ...category,
+    const [allReports, setAllReports] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [globalStats, setGlobalStats] = useState({
         total: 0,
-        encours: 0,
+        en_cours: 0,
         soumis_bianco: 0,
         enquetes_completees: 0,
-        color: chartColors[index],
-      })
-    );
-    setCategories(initialCategories);
-  };
+    });
+    const [monthTotal, setMonthTotal] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError("");
+    const [timeFilter, setTimeFilter] = useState("year");
+    const [tableFilterStatus, setTableFilterStatus] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [paginatedReports, setPaginatedReports] = useState([]);
+    const [filteredTotalCount, setFilteredTotalCount] = useState(0);
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
-      const response = await API.get("/reports?per_page=1000");
+    useEffect(() => {
+        initializeCategoriesWithZero();
+        fetchDashboardData();
+        return () => {
+            if (chartInstance.current) chartInstance.current.destroy();
+            if (barChartInstance.current) barChartInstance.current.destroy();
+            if (pieChartInstance.current) pieChartInstance.current.destroy();
+        };
+    }, []);
 
-      // Validation robuste de la réponse
-      if (!response.data) {
-        throw new Error("Aucune donnée reçue du serveur");
-      }
+    useEffect(() => {
+        if (categories.length > 0 && allReports.length > 0) {
+            initializeChart();
+            initializeBarChart();
+            initializePieChart();
+        }
+    }, [timeFilter, categories, allReports]);
 
-      if (!response.data.success) {
-        throw new Error(
-          response.data.message || "Erreur de chargement des données"
-        );
-      }
+    useEffect(() => {
+        updateTableData();
+    }, [allReports, currentPage, pageSize, tableFilterStatus]);
 
-      const allReportsData = Array.isArray(response.data.data)
-        ? response.data.data
-        : [];
-      setAllReports(allReportsData);
-
-      if (allReportsData.length > 0) {
-        calculateStatsFromReports(allReportsData);
-        updateRecentReportsWithRealData(allReportsData);
-        calculateMonthTotal();
-      } else {
-        setCategories(
-          defaultCategoryStructure.map((cat) => ({
-            ...cat,
+    const initializeCategoriesWithZero = () => {
+        const initialCategories = defaultCategoryStructure.map((category, index) => ({
+            ...category,
             total: 0,
             encours: 0,
             soumis_bianco: 0,
             enquetes_completees: 0,
-          }))
+            color: chartColors[index],
+        }));
+        setCategories(initialCategories);
+    };
+
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const response = await API.get("/reports?per_page=5000");
+
+            const data = Array.isArray(response?.data?.data)
+                ? response.data.data
+                : [];
+
+            setAllReports(data);
+
+            if (data.length > 0) {
+                calculateStatsFromReports(data);
+                calculateMonthTotal(data);
+            }
+        } catch (err) {
+            console.error("Erreur dashboard:", err);
+            setError("Erreur lors du chargement des données");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const calculateMonthTotal = (data) => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const count = data.filter(
+            (r) => r.created_at && new Date(r.created_at) >= startOfMonth
+        ).length;
+        setMonthTotal(count);
+    };
+
+    const calculateStatsFromReports = (reports) => {
+        const total = reports.length;
+        const en_cours = reports.filter((r) => r.status === "en_cours").length;
+        const soumis_bianco = reports.filter((r) => r.status === "finalise").length;
+        const enquetes_completees = reports.filter(
+            (r) => r.status === "classifier"
+        ).length;
+
+        setGlobalStats({ total, en_cours, soumis_bianco, enquetes_completees });
+
+        const updatedCategories = defaultCategoryStructure.map(
+            (category, index) => {
+                const catReports = reports.filter((r) => r.category === category.id);
+                return {
+                    ...category,
+                    total: catReports.length,
+                    encours: catReports.filter((r) => r.status === "en_cours").length,
+                    soumis_bianco: catReports.filter((r) => r.status === "finalise")
+                        .length,
+                    enquetes_completees: catReports.filter(
+                        (r) => r.status === "classifier"
+                    ).length,
+                    color: chartColors[index],
+                };
+            }
         );
-        setRecentReports([]);
-        setGlobalStats({
-          total: 0,
-          en_cours: 0,
-          soumis_bianco: 0,
-          enquetes_completees: 0,
-        });
-        setMonthTotal(0);
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement des données:", error);
-
-      let errorMessage = "Erreur lors du chargement des données";
-      if (error.response?.status === 401) {
-        errorMessage = "Session expirée. Veuillez vous reconnecter.";
-      } else if (error.response?.status === 403) {
-        errorMessage = "Accès non autorisé";
-      } else if (error.code === "ERR_NETWORK") {
-        errorMessage = "Problème de connexion. Vérifiez votre réseau.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateMonthTotal = () => {
-    if (!allReports || allReports.length === 0) {
-      setMonthTotal(0);
-      return;
-    }
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const monthReports = allReports.filter((report) => {
-      if (!report.created_at) return false;
-      const reportDate = new Date(report.created_at);
-      return reportDate >= startOfMonth;
-    });
-
-    setMonthTotal(monthReports.length);
-  };
-
-  const calculateStatsFromReports = (reports) => {
-    if (!reports || !Array.isArray(reports)) return;
-
-    const total = reports.length;
-    const en_cours = reports.filter((r) => r.status === "en_cours").length;
-    const soumis_bianco = reports.filter((r) => r.status === "finalise").length;
-    const enquetes_completees = reports.filter(
-      (r) => r.status === "classifier"
-    ).length;
-
-    const by_category = {};
-    defaultCategoryStructure.forEach((cat) => {
-      const categoryReports = reports.filter((r) => r.category === cat.id);
-      by_category[cat.id] = categoryReports.length;
-    });
-
-    const statsData = {
-      total,
-      en_cours,
-      soumis_bianco,
-      enquetes_completees,
-      by_category,
+        setCategories(updatedCategories);
     };
-    updateGlobalStats(statsData);
-    updateCategoriesWithRealData(statsData, reports);
-  };
 
-  const updateGlobalStats = (statsData) => {
-    setGlobalStats({
-      total: statsData.total || 0,
-      en_cours: statsData.en_cours || 0,
-      soumis_bianco: statsData.soumis_bianco || 0,
-      enquetes_completees: statsData.enquetes_completees || 0,
-    });
-  };
+    const updateTableData = () => {
+        let filtered = [...allReports];
 
-  const updateCategoriesWithRealData = (statsData, reports) => {
-    const updatedCategories = defaultCategoryStructure.map((category) => {
-      const realTotal = statsData.by_category?.[category.id] || 0;
+        if (tableFilterStatus !== "all") {
+            filtered = filtered.filter((r) => r.status === tableFilterStatus);
+        }
 
-      // Calcul réel des en cours et résolus par catégorie
-      const categoryReports = reports.filter(
-        (report) => report.category === category.id
-      );
-      const encours = categoryReports.filter(
-        (report) => report.status === "en_cours"
-      ).length;
-      const soumis_bianco = categoryReports.filter(
-        (report) => report.status === "finalise"
-      ).length;
-      const enquetes_completees = categoryReports.filter(
-        (report) => report.status === "classifier"
-      ).length;
+        filtered.sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
 
-      return {
-        ...category,
-        total: realTotal,
-        encours,
-        soumis_bianco,
-        enquetes_completees,
-      };
-    });
-    setCategories(updatedCategories);
-  };
+        setFilteredTotalCount(filtered.length);
 
-  const updateRecentReportsWithRealData = (reportsArray) => {
-    if (
-      !reportsArray ||
-      !Array.isArray(reportsArray) ||
-      reportsArray.length === 0
-    ) {
-      setRecentReports([]);
-      return;
-    }
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const slice = filtered.slice(startIndex, endIndex);
 
-    const sortedReports = [...reportsArray].sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
+        const mapped = slice.map((report) => ({
+            id: report.reference || `REF-${report.id}`,
+            date: report.created_at
+                ? new Date(report.created_at).toLocaleDateString("fr-FR")
+                : "-",
+            name:
+                report.type === "anonyme"
+                    ? "Anonyme"
+                    : report.name || "Non spécifié",
+            category: getCategoryLabel(report.category),
+            regionprovince: report.region || "-",
+            state: getStatusText(report.status),
+            rawStatus: report.status,
+        }));
 
-    const updatedReports = sortedReports.slice(0, pageSize).map((report) => {
-      return {
-        id: report.reference || `REF-${report.id}`,
-        date: report.created_at
-          ? new Date(report.created_at).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
-        name:
-          report.type === "anonyme" ? "Anonyme" : report.name || "Non spécifié",
-        category: getCategoryLabel(report.category),
-        regionprovince: report.region || "Localisation non disponible",
-        state: getStatusText(report.status),
-        originalCategory: report.category,
-      };
-    });
-
-    setRecentReports(updatedReports);
-  };
-
-  useEffect(() => {
-    if (allReports.length > 0) {
-      updateRecentReportsWithRealData(allReports);
-    }
-  }, [pageSize, allReports]);
-
-  const getCategoryLabel = (categoryId) => {
-    const categoryMap = {
-      "faux-diplomes": "Faux diplômes",
-      "offre-formation-irreguliere":
-        "Offre de formation irrégulière (non habilité)",
-      "recrutements-irreguliers": "Recrutements irréguliers",
-      harcelement: "Harcèlement",
-      corruption: "Corruption",
-      divers: "Divers",
+        setPaginatedReports(mapped);
     };
-    return categoryMap[categoryId] || categoryId;
-  };
 
-  const getStatusText = (status) => {
-    const statusMap = {
-      en_cours: "En cours",
-      finalise: "Soumis BIANCO",
-      classifier: "Complété",
-      doublon: "Doublon",
-      refuse: "Refusé",
+    const handleKPIClick = (status) => {
+        const newStatus = tableFilterStatus === status ? "all" : status;
+        setTableFilterStatus(newStatus);
+        setCurrentPage(1);
     };
-    return statusMap[status] || "En cours";
-  };
 
-  const generateTimeBasedData = () => {
-    let labels = [];
-    let datasets = [];
+    const generateTimeBasedData = () => {
+        let labels = [];
+        let datasets = [];
+        const now = new Date();
+        const monthsShort = [
+            "Jan",
+            "Fév",
+            "Mar",
+            "Avr",
+            "Mai",
+            "Juin",
+            "Juil",
+            "Août",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Déc",
+        ];
 
-    const now = new Date();
-    const monthsShort = [
-      "Jan",
-      "Fév",
-      "Mar",
-      "Avr",
-      "Mai",
-      "Juin",
-      "Juil",
-      "Août",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Déc",
-    ];
-
-    const makeDatasets = (labelArray, rangeChecks) => {
-      return categories.map((category, index) => {
-        const data = labelArray.map((_, li) => {
-          const check = rangeChecks[li];
-          const count = allReports.filter((report) => {
-            if (!report.created_at) return false;
-            const d = new Date(report.created_at);
-            return check(d) && report.category === category.id;
-          }).length;
-          return count;
-        });
-
-        return {
-          label: category.name,
-          data,
-          borderColor: chartColors[index].border,
-          backgroundColor: chartColors[index].background,
-          tension: 0.4,
-          fill: false,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderWidth: 2,
+        const makeDatasets = (labelArray, rangeChecks) => {
+            return categories.map((category) => {
+                const data = labelArray.map((_, li) => {
+                    const check = rangeChecks[li];
+                    return allReports.filter((report) => {
+                        if (!report.created_at) return false;
+                        const d = new Date(report.created_at);
+                        return check(d) && report.category === category.id;
+                    }).length;
+                });
+                return {
+                    label: category.name,
+                    data,
+                    borderColor: category.color.border,
+                    backgroundColor: category.color.background,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    borderWidth: 2,
+                };
+            });
         };
-      });
+
+        if (timeFilter === "day") {
+            const start = new Date(now);
+            start.setHours(start.getHours() - 23);
+            const hours = Array.from(
+                { length: 24 },
+                (_, i) => new Date(start.getTime() + i * 3600000)
+            );
+            labels = hours.map((h) => `${h.getHours()}h`);
+            const rangeChecks = hours.map(
+                (h) => (d) =>
+                    d.getDate() === h.getDate() &&
+                    d.getMonth() === h.getMonth() &&
+                    d.getHours() === h.getHours()
+            );
+            datasets = makeDatasets(labels, rangeChecks);
+        } else if (timeFilter === "week") {
+            const start = new Date(now);
+            start.setDate(start.getDate() - 6);
+            const days = Array.from(
+                { length: 7 },
+                (_, i) => new Date(start.getTime() + i * 86400000)
+            );
+            labels = days.map((d) => `${d.getDate()}/${d.getMonth() + 1}`);
+            const rangeChecks = days.map(
+                (day) => (d) =>
+                    d.getDate() === day.getDate() && d.getMonth() === day.getMonth()
+            );
+            datasets = makeDatasets(labels, rangeChecks);
+        } else if (timeFilter === "month") {
+            labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4"];
+            const rangeChecks = [0, 1, 2, 3].map(
+                (w) => (d) => Math.ceil(d.getDate() / 7) === w + 1
+            );
+            datasets = makeDatasets(labels, rangeChecks);
+        } else {
+            const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+            const months = Array.from(
+                { length: 12 },
+                (_, i) => new Date(start.getFullYear(), start.getMonth() + i, 1)
+            );
+            labels = months.map(
+                (m) =>
+                    `${monthsShort[m.getMonth()]} ${m
+                        .getFullYear()
+                        .toString()
+                        .slice(2)}`
+            );
+            const rangeChecks = months.map(
+                (m) => (d) =>
+                    d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear()
+            );
+            datasets = makeDatasets(labels, rangeChecks);
+        }
+
+        return { labels, datasets };
     };
 
-    if (timeFilter === "day") {
-      // last 24 hours chronological
-      const start = new Date(now);
-      start.setMinutes(0, 0, 0);
-      start.setHours(start.getHours() - 23);
-      const hours = Array.from({ length: 24 }, (_, i) => {
-        const h = new Date(start.getTime() + i * 3600 * 1000);
-        return h;
-      });
-
-      labels = hours.map((h) => `${h.getHours()}h`);
-      const rangeChecks = hours.map((h) => (d) => {
-        return (
-          d.getFullYear() === h.getFullYear() &&
-          d.getMonth() === h.getMonth() &&
-          d.getDate() === h.getDate() &&
-          d.getHours() === h.getHours()
+    const getReportsByMonthAndCategory = () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        const months = Array.from(
+            { length: 12 },
+            (_, i) => new Date(start.getFullYear(), start.getMonth() + i, 1)
         );
-      });
+        const monthsShort = [
+            "Jan",
+            "Fév",
+            "Mar",
+            "Avr",
+            "Mai",
+            "Juin",
+            "Juil",
+            "Août",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Déc",
+        ];
 
-      datasets = makeDatasets(labels, rangeChecks);
-    } else if (timeFilter === "week") {
-      // last 7 days chronological (6 days ago -> today)
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      start.setDate(start.getDate() - 6);
-      const days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(start.getTime() + i * 24 * 3600 * 1000);
-        return d;
-      });
+        const labels = months.map((m) => monthsShort[m.getMonth()]);
 
-      const frDays = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-      labels = days.map(
-        (d) => `${frDays[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`
-      );
-
-      const rangeChecks = days.map((dayStart) => (d) => {
-        return (
-          d.getFullYear() === dayStart.getFullYear() &&
-          d.getMonth() === dayStart.getMonth() &&
-          d.getDate() === dayStart.getDate()
-        );
-      });
-
-      datasets = makeDatasets(labels, rangeChecks);
-    } else if (timeFilter === "month") {
-      // last 4 weeks chronological (approx. 28 days)
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      start.setDate(start.getDate() - 27);
-      const weeks = Array.from({ length: 4 }, (_, i) => {
-        const wStart = new Date(start.getTime() + i * 7 * 24 * 3600 * 1000);
-        return wStart;
-      });
-
-      labels = weeks.map(
-        (w, idx) => `Sem ${idx + 1} (${w.getDate()}/${w.getMonth() + 1})`
-      );
-
-      const rangeChecks = weeks.map((wStart) => (d) => {
-        const wEnd = new Date(wStart.getTime() + 7 * 24 * 3600 * 1000);
-        return d >= wStart && d < wEnd;
-      });
-
-      datasets = makeDatasets(labels, rangeChecks);
-    } else {
-      // year or default: last 12 months chronological
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      start.setMonth(start.getMonth() - 11);
-      const months = Array.from({ length: 12 }, (_, i) => {
-        const m = new Date(start.getFullYear(), start.getMonth() + i, 1);
-        return m;
-      });
-
-      labels = months.map(
-        (m) => monthsShort[m.getMonth()] + ` ${m.getFullYear()}`
-      );
-
-      const rangeChecks = months.map((m) => (d) => {
-        return (
-          d.getFullYear() === m.getFullYear() && d.getMonth() === m.getMonth()
-        );
-      });
-
-      datasets = makeDatasets(labels, rangeChecks);
-    }
-
-    return { labels, datasets };
-  };
-
-  const getReportsByMonthAndCategory = () => {
-    // Build last 12 months chronological (oldest -> newest)
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    start.setMonth(start.getMonth() - 11);
-    const months = Array.from(
-      { length: 12 },
-      (_, i) => new Date(start.getFullYear(), start.getMonth() + i, 1)
-    );
-
-    const monthsShort = [
-      "Jan",
-      "Fév",
-      "Mar",
-      "Avr",
-      "Mai",
-      "Juin",
-      "Juil",
-      "Août",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Déc",
-    ];
-
-    const labels = months.map(
-      (m) => `${monthsShort[m.getMonth()]} ${m.getFullYear()}`
-    );
-
-    const datasets = categories.map((category, index) => {
-      const data = months.map((m) => {
-        const monthReports = allReports.filter((report) => {
-          if (!report.created_at) return false;
-          const reportDate = new Date(report.created_at);
-          return (
-            reportDate.getMonth() === m.getMonth() &&
-            reportDate.getFullYear() === m.getFullYear() &&
-            report.category === category.id
-          );
+        const datasets = categories.map((cat) => {
+            return {
+                label: cat.name,
+                data: months.map((m) =>
+                    allReports.filter((r) => {
+                        const d = new Date(r.created_at);
+                        return (
+                            d.getMonth() === m.getMonth() &&
+                            d.getFullYear() === m.getFullYear() &&
+                            r.category === cat.id
+                        );
+                    }).length
+                ),
+                backgroundColor: cat.color.border,
+                borderColor: cat.color.border,
+                borderWidth: 1,
+            };
         });
-        return monthReports.length;
-      });
 
-      // Use the predefined background rgba if available, otherwise derive from border
-      const bg =
-        category.color?.background ||
-        chartColors[index]?.background ||
-        chartColors[index]?.border + "33";
-
-      return {
-        label: category.name,
-        data: data,
-        backgroundColor: bg,
-        borderColor: chartColors[index].border,
-        borderWidth: 1,
-      };
-    });
-
-    return { labels, datasets };
-  };
-
-  const initializeChart = () => {
-    if (!chartRef.current) return;
-
-    const { labels, datasets } = generateTimeBasedData();
-
-    if (chartInstance.current) chartInstance.current.destroy();
-
-    try {
-      const ctx = chartRef.current.getContext("2d");
-      chartInstance.current = new Chart(ctx, {
-        type: "line",
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: {
-              display: true,
-              position: "bottom",
-              labels: {
-                usePointStyle: true,
-                padding: 12,
-                font: { size: 12 },
-                color: "#455160",
-              },
-            },
-            tooltip: {
-              backgroundColor: "#fff",
-              titleColor: "#383e45",
-              bodyColor: "#22282c",
-              borderColor: "#ddd",
-              borderWidth: 1,
-              padding: 12,
-              displayColors: true,
-              titleFont: { size: 12 },
-              bodyFont: { size: 12 },
-              callbacks: {
-                label: (context) =>
-                  `${context.dataset.label}: ${context.parsed.y} signalements`,
-              },
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: { font: { size: 12 } },
-              grid: { color: "rgba(120,130,140,0.06)" },
-              title: {
-                display: true,
-                text: "Nombre de signalements",
-                font: { size: 13, weight: "500" },
-              },
-            },
-            x: {
-              ticks: { font: { size: 12 } },
-              grid: { display: false },
-              title: {
-                display: true,
-                text: getTimeFilterTitle(),
-                font: { size: 13, weight: "500" },
-              },
-            },
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation du graphique:", error);
-    }
-  };
-
-  const initializeBarChart = () => {
-    if (!barChartRef.current) return;
-
-    const { labels, datasets } = getReportsByMonthAndCategory();
-
-    if (barChartInstance.current) barChartInstance.current.destroy();
-
-    try {
-      const ctx = barChartRef.current.getContext("2d");
-      barChartInstance.current = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: datasets,
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true,
-              position: "top",
-              labels: { usePointStyle: true, font: { size: 12 }, padding: 10 },
-            },
-            title: {
-              display: true,
-              text: `Répartition des signalements par type - 12 derniers mois`,
-            },
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              titleFont: { size: 12 },
-              bodyFont: { size: 12 },
-              callbacks: {
-                label: (context) => {
-                  const val =
-                    context.parsed && context.parsed.y != null
-                      ? context.parsed.y
-                      : context.raw;
-                  return `${context.dataset.label}: ${String(
-                    val
-                  )} signalement(s)`;
-                },
-                footer: (items) => {
-                  const total = items.reduce(
-                    (s, it) => s + (it.parsed?.y || it.raw || 0),
-                    0
-                  );
-                  return `Total mois: ${String(total)}`;
-                },
-              },
-            },
-          },
-          interaction: { mode: "index", intersect: false },
-          scales: {
-            x: {
-              stacked: false,
-              title: { display: true, text: "Mois" },
-            },
-            y: {
-              stacked: false,
-              beginAtZero: true,
-              title: { display: true, text: "Nombre de signalements" },
-              ticks: {
-                callback: (value) => String(value),
-                font: { size: 12 },
-              },
-            },
-          },
-        },
-      });
-    } catch (error) {
-      console.error(
-        "Erreur lors de l'initialisation du diagramme en barres:",
-        error
-      );
-    }
-  };
-
-  const initializePieChart = () => {
-    if (!pieChartRef.current) return;
-
-    const categoryData = categories.map((cat) => cat.total);
-    const total = categoryData.reduce((sum, value) => sum + value, 0);
-
-    // Only show categories that have data
-    const validCategories = categories.filter(
-      (cat, index) => categoryData[index] > 0
-    );
-    const validData = categoryData.filter((value) => value > 0);
-
-    if (pieChartInstance.current) pieChartInstance.current.destroy();
-
-    try {
-      const ctx = pieChartRef.current.getContext("2d");
-      pieChartInstance.current = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: validCategories.map((cat) => cat.name),
-          datasets: [
-            {
-              data: validData,
-              backgroundColor: pieColors.slice(0, validCategories.length),
-              borderColor: "#fff",
-              borderWidth: 2,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: "right",
-              labels: {
-                padding: 10,
-                usePointStyle: true,
-                font: {
-                  size: 11,
-                },
-              },
-            },
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  const value = context.raw;
-                  const percentage = ((value / total) * 100).toFixed(1);
-                  return `${context.label}: ${value} (${percentage}%)`;
-                },
-              },
-            },
-          },
-        },
-      });
-    } catch (error) {
-      console.error(
-        "Erreur lors de l'initialisation du diagramme circulaire:",
-        error
-      );
-    }
-  };
-
-  const getTimeFilterTitle = () => {
-    switch (timeFilter) {
-      case "day":
-        return "Heures (24h)";
-      case "week":
-        return "Jours de la semaine";
-      case "month":
-        return "Semaines du mois";
-      case "year":
-        return "Mois de l'année";
-      default:
-        return "Mois 2025";
-    }
-  };
-
-  const handleTimeFilterSelect = (filter) => {
-    setTimeFilter(filter);
-    setShowDatePicker(false);
-  };
-
-  const DatePicker = () => (
-    <div className="absolute top-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 min-w-64">
-      <div className="space-y-2">
-        <button
-          className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
-          onClick={() => handleTimeFilterSelect("day")}
-        >
-          Jour
-        </button>
-        <button
-          className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
-          onClick={() => handleTimeFilterSelect("week")}
-        >
-          Semaine
-        </button>
-        <button
-          className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
-          onClick={() => handleTimeFilterSelect("month")}
-        >
-          Mois
-        </button>
-        <button
-          className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
-          onClick={() => handleTimeFilterSelect("year")}
-        >
-          Année
-        </button>
-      </div>
-    </div>
-  );
-
-  useEffect(() => {
-    return () => {
-      if (chartInstance.current) chartInstance.current.destroy();
-      if (barChartInstance.current) barChartInstance.current.destroy();
-      if (pieChartInstance.current) pieChartInstance.current.destroy();
+        return { labels, datasets };
     };
-  }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement des données...</p>
-        </div>
-      </div>
-    );
-  }
+    const initializeChart = () => {
+        if (!chartRef.current) return;
+        const { labels, datasets } = generateTimeBasedData();
+        if (chartInstance.current) chartInstance.current.destroy();
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <div className="bg-red-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Erreur</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Réessayer
-          </button>
-        </div>
-      </div>
-    );
-  }
+        const ctx = chartRef.current.getContext("2d");
+        chartInstance.current = new Chart(ctx, {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { usePointStyle: true, boxWidth: 8 },
+                    },
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                },
+            },
+        });
+    };
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
-          <p className="text-gray-600 mt-2">
-            Vue d'ensemble globale de tous les signalements
-          </p>
-        </div>
+    const initializeBarChart = () => {
+        if (!barChartRef.current) return;
+        if (barChartInstance.current) barChartInstance.current.destroy();
 
-        {/* Stats globales */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* Total Signalements */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total signalements</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {globalStats.total}
-                </p>
-              </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <svg
-                  className="w-8 h-8 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
+        const { labels, datasets } = getReportsByMonthAndCategory();
 
-          {/* En Cours */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">En cours</p>
-                <p className="text-2xl font-bold text-orange-600 mt-2">
-                  {globalStats.en_cours}
-                </p>
-              </div>
-              <div className="bg-orange-100 rounded-full p-3">
-                <svg
-                  className="w-8 h-8 text-orange-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
+        const ctx = barChartRef.current.getContext("2d");
+        barChartInstance.current = new Chart(ctx, {
+            type: "bar",
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: "top",
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 20,
+                        }
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (Number.isInteger(value)) {
+                                    return value;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Nombre de signalements'
+                        }
+                    }
+                },
+                // Pour afficher les barres côte à côte au lieu de les empiler
+                datasets: {
+                    bar: {
+                        categoryPercentage: 0.8,
+                        barPercentage: 0.9,
+                    }
+                }
+            },
+        });
+    };
 
-          {/* Soumis à la BIANCO */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Soumis à la BIANCO</p>
-                <p className="text-2xl font-bold text-purple-600 mt-2">
-                  {globalStats.soumis_bianco}
-                </p>
-              </div>
-              <div className="bg-purple-100 rounded-full p-3">
-                <svg
-                  className="w-8 h-8 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
+    const initializePieChart = () => {
+        if (!pieChartRef.current) return;
+        if (pieChartInstance.current) pieChartInstance.current.destroy();
 
-          {/* Enquêtes complétées */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Enquêtes complétées</p>
-                <p className="text-2xl font-bold text-green-600 mt-2">
-                  {globalStats.enquetes_completees}
-                </p>
-              </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <svg
-                  className="w-8 h-8 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
+        const validCats = categories.filter((c) => c.total > 0);
+        const ctx = pieChartRef.current.getContext("2d");
 
-        {/* Catégories - 3x3 avec taille normale et sans redirection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">{cat.icon}</span>
-                <span className="text-xl font-semibold text-gray-900">
-                  {cat.total}
-                </span>
-              </div>
-              <h3 className="font-semibold text-gray-900 text-base mb-1">
-                {cat.name}
-              </h3>
-              <p className="text-sm text-gray-500 mb-3">{cat.subtitle}</p>
-              <div className="flex justify-between text-sm">
-                <span className="text-orange-600">En cours: {cat.encours}</span>
-                <span className="text-purple-600">
-                  Soumis BIANCO: {cat.soumis_bianco}
-                </span>
-                <span className="text-green-600">
-                  Complétés: {cat.enquetes_completees}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        pieChartInstance.current = new Chart(ctx, {
+            type: "doughnut",
+            data: {
+                labels: validCats.map((c) => c.name),
+                datasets: [
+                    {
+                        data: validCats.map((c) => c.total),
+                        backgroundColor: pieColors,
+                        borderWidth: 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "right", labels: { boxWidth: 12 } },
+                },
+            },
+        });
+    };
 
-        {/* Graphique linéaire avec filtres */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Évolution des signalements
-            </h2>
-            <div className="flex items-center space-x-3">
-              <div className="relative">
+    const getCategoryLabel = (id) =>
+        defaultCategoryStructure.find((c) => c.id === id)?.name || id;
+
+    const getStatusText = (status) => {
+        const map = {
+            en_cours: "En cours",
+            finalise: "Soumis BIANCO",
+            classifier: "Complété",
+            doublon: "Doublon",
+            refuse: "Refusé",
+        };
+        return map[status] || status;
+    };
+
+    const getTimeFilterTitle = () => {
+        switch (timeFilter) {
+            case "day": return "Heures (24h)";
+            case "week": return "Jours de la semaine";
+            case "month": return "Semaines du mois";
+            case "year": return "Mois de l'année";
+            default: return "Mois";
+        }
+    };
+
+    const DatePicker = () => (
+        <div className="absolute top-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 min-w-64">
+            <div className="space-y-2">
                 <button
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 bg-white"
-                  onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    onClick={() => {
+                        setTimeFilter("day");
+                        setShowDatePicker(false);
+                    }}
                 >
-                  <svg
-                    className="w-5 h-5 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <span>
-                    Période:{" "}
-                    {timeFilter === "day"
-                      ? "Jour"
-                      : timeFilter === "week"
-                      ? "Semaine"
-                      : timeFilter === "month"
-                      ? "Mois"
-                      : "Année"}
-                  </span>
+                    Jour
                 </button>
-                {showDatePicker && <DatePicker />}
-              </div>
+                <button
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    onClick={() => {
+                        setTimeFilter("week");
+                        setShowDatePicker(false);
+                    }}
+                >
+                    Semaine
+                </button>
+                <button
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    onClick={() => {
+                        setTimeFilter("month");
+                        setShowDatePicker(false);
+                    }}
+                >
+                    Mois
+                </button>
+                <button
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    onClick={() => {
+                        setTimeFilter("year");
+                        setShowDatePicker(false);
+                    }}
+                >
+                    Année
+                </button>
             </div>
-          </div>
-          <div className="h-96">
-            <canvas ref={chartRef}></canvas>
-          </div>
         </div>
+    );
 
-        {/* Graphiques supplémentaires */}
-        <div className="space-y-6">
-          {/* Diagramme en barres agrandi */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Répartition des signalements par type et par mois -{" "}
-              {new Date().getFullYear()}
-            </h2>
-            <div className="h-96">
-              <canvas ref={barChartRef}></canvas>
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
             </div>
-          </div>
+        );
+    }
 
-          {/* Diagramme circulaire en bas */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Répartition par catégories
-            </h2>
-            <div className="h-80">
-              <canvas ref={pieChartRef}></canvas>
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
+                    <h3 className="text-red-600 font-bold">Erreur</h3>
+                    <p className="text-slate-600 mt-2">{error}</p>
+                    <button
+                        type="button"
+                        onClick={fetchDashboardData}
+                        className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-sm"
+                    >
+                        Réessayer
+                    </button>
+                </div>
             </div>
-          </div>
+        );
+    }
+
+    const totalPages =
+        filteredTotalCount === 0 ? 1 : Math.ceil(filteredTotalCount / pageSize);
+
+    return (
+        <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-900">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">
+                            Tableau de bord
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Vue d&apos;ensemble synchronisée en temps réel
+                        </p>
+                    </div>
+                    <div className="relative">
+                        <button
+                            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 bg-white"
+                            onClick={() => setShowDatePicker(!showDatePicker)}
+                        >
+                            <svg
+                                className="w-5 h-5 text-gray-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                            </svg>
+                            <span>
+                                Période:{" "}
+                                {timeFilter === "day"
+                                    ? "Jour"
+                                    : timeFilter === "week"
+                                        ? "Semaine"
+                                        : timeFilter === "month"
+                                            ? "Mois"
+                                            : "Année"}
+                            </span>
+                        </button>
+                        {showDatePicker && <DatePicker />}
+                    </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KPICard
+                        title="Total Dossiers"
+                        value={globalStats.total}
+                        subtitle="Tous les signalements"
+                        icon="📊"
+                        color="bg-blue-500"
+                        isActive={tableFilterStatus === "all"}
+                        onClick={() => handleKPIClick("all")}
+                    />
+                    <KPICard
+                        title="Dossiers Actifs"
+                        value={globalStats.en_cours}
+                        subtitle="En cours de traitement"
+                        icon="⏳"
+                        color="bg-amber-500"
+                        isActive={tableFilterStatus === "en_cours"}
+                        onClick={() => handleKPIClick("en_cours")}
+                    />
+                    <KPICard
+                        title="Soumis BIANCO"
+                        value={globalStats.soumis_bianco}
+                        subtitle="Transmis pour action"
+                        icon="⚖️"
+                        color="bg-purple-500"
+                        isActive={tableFilterStatus === "finalise"}
+                        onClick={() => handleKPIClick("finalise")}
+                    />
+                    <KPICard
+                        title="Complétés"
+                        value={globalStats.enquetes_completees}
+                        subtitle="Classés / Terminés"
+                        icon="✅"
+                        color="bg-emerald-500"
+                        isActive={tableFilterStatus === "classifier"}
+                        onClick={() => handleKPIClick("classifier")}
+                    />
+                </div>
+
+                {/* Catégories */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categories.map((category) => (
+                        <CategoryCard key={category.id} category={category} />
+                    ))}
+                </div>
+
+                {/* Graphiques */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-slate-800">Évolution temporelle</h3>
+                        </div>
+                        <div className="h-72 w-full">
+                            <canvas ref={chartRef} />
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <h3 className="font-bold text-slate-800 mb-4">
+                            Répartition par type
+                        </h3>
+                        <div className="h-72 w-full flex items-center justify-center">
+                            <canvas ref={pieChartRef} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Graphique en barres - Chaque catégorie séparée */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                    <h3 className="font-bold text-slate-800 mb-4">
+                        Détails mensuels par catégorie (non empilé)
+                    </h3>
+                    <div className="h-72 w-full">
+                        <canvas ref={barChartRef} />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-4 text-center">
+                        Chaque catégorie est représentée par des barres individuelles côte à côte pour chaque mois
+                    </p>
+                </div>
+
+                {/* Tableau */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    {/* Header table */}
+                    <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-lg text-slate-800">
+                                Liste des dossiers
+                            </h3>
+                            {tableFilterStatus !== "all" && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
+                                    Filtre actif : {getStatusText(tableFilterStatus)}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleKPIClick("all")}
+                                        className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="w-3 h-3"
+                                        >
+                                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                        </svg>
+                                    </button>
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-sm">
+                            <span className="text-slate-500">Lignes par page :</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                    setPageSize(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="form-select text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 py-1.5 px-3 bg-slate-50"
+                            >
+                                <option value={5}>5</option>
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Content table */}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100">
+                            <thead className="bg-slate-50/50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Référence
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Date
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Nom
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Catégorie
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Région
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Statut
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                            {paginatedReports.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-12 text-center">
+                                        <div className="flex flex-col items-center justify-center text-slate-400">
+                                            <span className="text-4xl mb-2">🔍</span>
+                                            <p className="text-sm">
+                                                Aucun dossier trouvé pour ce filtre.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedReports.map((report) => (
+                                    <tr
+                                        key={report.id}
+                                        className="hover:bg-blue-50/30 transition-colors group cursor-default"
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-blue-600 group-hover:text-blue-700">
+                                            {report.id}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                            {report.date}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                            {report.name}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                            {report.category}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                            {report.regionprovince}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <StatusBadge status={report.rawStatus} />
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Footer pagination */}
+                    <div className="bg-white px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-slate-500">
+                                    Affichage de{" "}
+                                    <span className="font-bold text-slate-800">
+                                        {filteredTotalCount === 0
+                                            ? 0
+                                            : (currentPage - 1) * pageSize + 1}
+                                    </span>{" "}
+                                    à{" "}
+                                    <span className="font-bold text-slate-800">
+                                        {Math.min(currentPage * pageSize, filteredTotalCount)}
+                                    </span>{" "}
+                                    sur{" "}
+                                    <span className="font-bold text-slate-800">
+                                        {filteredTotalCount}
+                                    </span>{" "}
+                                    résultats
+                                </p>
+                            </div>
+                            <div>
+                                <nav
+                                    className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                                    aria-label="Pagination"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCurrentPage((p) => Math.max(1, p - 1))
+                                        }
+                                        disabled={currentPage === 1}
+                                        className="relative inline-flex items-center px-3 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="sr-only">Précédent</span>
+                                        <svg
+                                            className="h-4 w-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M15 19l-7-7 7-7"
+                                            />
+                                        </svg>
+                                    </button>
+
+                                    <span className="relative inline-flex items-center px-4 py-2 border border-slate-300 bg-white text-sm font-medium text-slate-700">
+                                        Page {currentPage} / {totalPages}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCurrentPage((p) =>
+                                                Math.min(totalPages, p + 1)
+                                            )
+                                        }
+                                        disabled={
+                                            currentPage === totalPages || totalPages === 0
+                                        }
+                                        className="relative inline-flex items-center px-3 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="sr-only">Suivant</span>
+                                        <svg
+                                            className="h-4 w-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M9 5l7 7-7 7"
+                                            />
+                                        </svg>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        {/* Signalements récents */}
-        <div className="bg-white rounded-lg shadow mt-6">
-          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">
-              Signalements récents
-            </h2>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Afficher:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(parseInt(e.target.value))}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={30}>30</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Référence
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nom/Prénom
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Catégorie
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Région/Province
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    État
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                      {report.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {report.date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {report.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {report.category}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {report.regionprovince}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          report.state === "En cours"
-                            ? "bg-orange-100 text-orange-800"
-                            : report.state === "Soumis BIANCO"
-                            ? "bg-purple-100 text-purple-800"
-                            : report.state === "Complété"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {report.state}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {recentReports.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-gray-500">
-                      Aucun signalement récent
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
