@@ -3,13 +3,21 @@ import {
     LayoutDashboard,
     FileText,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
 } from "lucide-react";
 
 const SidebarAgent = ({ currentView, onViewChange, collapsed, onToggle }) => {
     const menuItems = [
-        { id: "dashboard", label: "Tableau de bord", icon: <LayoutDashboard size={20} /> },
-        { id: "signalements", label: "Gestion de Signalements", icon: <FileText size={20} /> },
+        {
+            id: "dashboard",
+            label: "Tableau de bord",
+            icon: <LayoutDashboard size={20} />,
+        },
+        {
+            id: "AgentReportView", // <- ouvre AgentReportsView dans le parent
+            label: "Gestion de signalements",
+            icon: <FileText size={20} />,
+        },
     ];
 
     return (
@@ -44,15 +52,17 @@ const SidebarAgent = ({ currentView, onViewChange, collapsed, onToggle }) => {
                         onClick={() => onViewChange(item.id)}
                         className={`
               w-full flex items-center p-3 rounded-lg transition-colors duration-200 group relative
-              ${currentView === item.id
-                            ? "bg-blue-50 text-blue-600 font-medium"
-                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}
+              ${
+                            currentView === item.id
+                                ? "bg-blue-50 text-blue-600 font-medium"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        }
             `}
                         title={collapsed ? item.label : ""}
                     >
-                        <span className={`flex-shrink-0 ${collapsed ? "mx-auto" : ""}`}>
-                            {item.icon}
-                        </span>
+            <span className={`flex-shrink-0 ${collapsed ? "mx-auto" : ""}`}>
+              {item.icon}
+            </span>
 
                         {!collapsed && (
                             <span className="ml-3 truncate text-sm">{item.label}</span>
