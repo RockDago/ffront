@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
     Eye,
@@ -24,6 +25,8 @@ import {
     ShieldAlert,
     Tag,
     BarChart,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import API from "../../config/axios";
 import jsPDF from "jspdf";
@@ -32,6 +35,158 @@ import html2canvas from "html2canvas";
 import repLogo from "../../assets/images/logo rep.png";
 import mesupresLogo from "../../assets/images/logo mesupres.png";
 import fosikaLogo from "../../assets/images/logo fosika.png";
+
+// Composant Toast pour afficher les messages
+function ToastNotification({ message, type = "error", show, onClose }) {
+    const getTypeStyles = () => {
+        switch (type) {
+            case "success":
+                return "border-green-500";
+            case "warning":
+                return "border-yellow-500";
+            case "info":
+                return "border-blue-500";
+            case "error":
+            default:
+                return "border-red-500";
+        }
+    };
+
+    const getIcon = () => {
+        switch (type) {
+            case "success":
+                return (
+                    <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                );
+            case "warning":
+                return (
+                    <svg className="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                );
+            case "info":
+                return (
+                    <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                );
+            case "error":
+            default:
+                return (
+                    <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                );
+        }
+    };
+
+    return (
+        <div
+            className={`fixed top-5 right-5 z-[9999] transition-all duration-500 transform ${
+                show ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+            }`}
+        >
+            <div className={`bg-white border-l-4 ${getTypeStyles()} rounded shadow-2xl p-4 w-80 flex items-start`}>
+                <div className="flex-shrink-0">
+                    {getIcon()}
+                </div>
+                <div className="ml-3 w-0 flex-1 pt-0.5">
+                    <p className="text-sm font-bold text-gray-900 leading-5">
+                        {type === "success" ? "Succès" :
+                            type === "warning" ? "Avertissement" :
+                                type === "info" ? "Information" : "Erreur"}
+                    </p>
+                    <p className="mt-1 text-sm leading-5 text-gray-600">
+                        {message}
+                    </p>
+                </div>
+                <div className="ml-4 flex-shrink-0 flex">
+                    <button
+                        onClick={onClose}
+                        className="inline-flex text-gray-400 focus:outline-none focus:text-gray-500 transition ease-in-out duration-150"
+                    >
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 10 5.707 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Composant ConfirmationModal pour les confirmations
+function ConfirmationModal({ show, title, message, onConfirm, onCancel, confirmText = "Confirmer", cancelText = "Annuler" }) {
+    if (!show) return null;
+
+    return (
+        <div className="fixed inset-0 z-[10000] overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen px-4 text-center">
+                <div
+                    className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                    aria-hidden="true"
+                    onClick={onCancel}
+                />
+                <span
+                    className="hidden sm:inline-block sm:align-middle sm:h-screen"
+                    aria-hidden="true"
+                >
+                    &#8203;
+                </span>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="sm:flex sm:items-start">
+                            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                    {title}
+                                </h3>
+                                <div className="mt-2">
+                                    <p className="text-sm text-gray-500">
+                                        {message}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button
+                            type="button"
+                            onClick={onConfirm}
+                            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                            {confirmText}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                            {cancelText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const SortIcon = ({ isSorted, isAsc }) => {
+    if (!isSorted) {
+        return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
+    }
+    return isAsc ? (
+        <ArrowUp className="w-3 h-3 text-blue-600" />
+    ) : (
+        <ArrowDown className="w-3 h-3 text-blue-600" />
+    );
+};
 
 const ReportsView = () => {
     const [currentTab, setCurrentTab] = useState("tous");
@@ -94,6 +249,22 @@ const ReportsView = () => {
     });
     const [generatedReport, setGeneratedReport] = useState(null);
 
+    // États pour les toasts
+    const [toast, setToast] = useState({
+        show: false,
+        message: "",
+        type: "error" // error, success, warning, info
+    });
+
+    // États pour la confirmation de suppression
+    const [confirmationModal, setConfirmationModal] = useState({
+        show: false,
+        title: "",
+        message: "",
+        reportId: null,
+        action: null, // 'delete', etc.
+    });
+
     const categories = [
         {
             id: "faux-diplomes",
@@ -133,6 +304,77 @@ const ReportsView = () => {
         { value: "autorite_competente", label: "Autorité compétente" },
     ];
 
+    // Fonction pour afficher un toast
+    const showToastMessage = (message, type = "error") => {
+        setToast({
+            show: true,
+            message,
+            type
+        });
+
+        // Masquer automatiquement après 5 secondes
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 5000);
+    };
+
+    // Fonction pour afficher une confirmation
+    const showConfirmationModal = (title, message, reportId, action) => {
+        setConfirmationModal({
+            show: true,
+            title,
+            message,
+            reportId,
+            action
+        });
+    };
+
+    // Fonction pour fermer la confirmation
+    const closeConfirmationModal = () => {
+        setConfirmationModal({
+            show: false,
+            title: "",
+            message: "",
+            reportId: null,
+            action: null,
+        });
+    };
+
+    // Fonction pour gérer la confirmation
+    const handleConfirmation = async () => {
+        const { reportId, action } = confirmationModal;
+
+        if (!reportId) {
+            closeConfirmationModal();
+            return;
+        }
+
+        try {
+            if (action === 'delete') {
+                await API.delete(`/reports/${reportId}`);
+                showToastMessage("Signalement supprimé avec succès", "success");
+
+                setShowDeleteModal(false);
+                if (selectedReport?.id === reportId) {
+                    setSelectedReport(null);
+                }
+
+                await fetchReports();
+            }
+        } catch (error) {
+            if (error.response?.status === 404) {
+                await fetchReports();
+                showToastMessage("Signalement supprimé", "info");
+            } else if (error.response?.status === 403) {
+                showToastMessage("Vous n'avez pas les droits pour supprimer ce signalement", "error");
+            } else {
+                showToastMessage(`Erreur: ${error.response?.data?.message || error.message}`, "error");
+            }
+        }
+
+        closeConfirmationModal();
+    };
+
     const fetchReports = async () => {
         setIsLoading(true);
         setError(null);
@@ -154,6 +396,12 @@ const ReportsView = () => {
                         }
                     } catch (e) {}
 
+                    // Créer une description abrégée
+                    const fullDescription = report.description || "Aucune description";
+                    const shortDescription = fullDescription.length > 80
+                        ? fullDescription.substring(0, 80) + '...'
+                        : fullDescription;
+
                     return {
                         id: report.id,
                         reference: report.reference,
@@ -168,6 +416,7 @@ const ReportsView = () => {
                         raison: report.title || "Non spécifié",
                         type_signalement: report.is_anonymous ? "Anonyme" : "Non-Anonyme",
                         explication: report.description || "Aucune description",
+                        shortDescription: shortDescription,
                         files: filesArray,
                         status: report.status || "en_cours",
                         assigned_to: report.assigned_to || "Non assigné",
@@ -184,6 +433,7 @@ const ReportsView = () => {
             }
         } catch (error) {
             setError(error.response?.data?.message || error.message);
+            showToastMessage("Erreur lors du chargement des signalements", "error");
         } finally {
             setIsLoading(false);
         }
@@ -200,7 +450,7 @@ const ReportsView = () => {
                 (report) => report.status === "en_cours"
             ).length;
             const resolus = reports.filter(
-                (report) => report.status === "finalise"
+                (report) => report.status === "classifier"
             ).length;
             return { total, encours, resolus };
         }
@@ -213,7 +463,7 @@ const ReportsView = () => {
             (report) => report.status === "en_cours"
         ).length;
         const resolus = categoryReports.filter(
-            (report) => report.status === "finalise"
+            (report) => report.status === "classifier"
         ).length;
 
         return { total, encours, resolus };
@@ -236,11 +486,9 @@ const ReportsView = () => {
     const getDisplayStatus = (status) => {
         const statusMap = {
             en_cours: "En cours",
-            investigation: "Investigation",
+            investigation: "Ouverture d'enquêtes",
             transmis_autorite: "Transmis aux autorités compétentes",
-            classifier: "Complété",
-            finalise: "Finalisé",
-            refuse: "Refusé",
+            classifier: "Dossier classé sans suite",
         };
         return statusMap[status] || status;
     };
@@ -284,36 +532,7 @@ const ReportsView = () => {
     }, [reports, sortConfig]);
 
     const filteredReports = useMemo(() => {
-        let baseReports = [];
-
-        switch (currentTab) {
-            case "anonyme":
-                baseReports = reports.filter((r) => r.type_signalement === "Anonyme");
-                break;
-
-            case "non-anonyme":
-                baseReports = reports.filter(
-                    (r) => r.type_signalement === "Non-Anonyme"
-                );
-                break;
-
-            case "classifier":
-                baseReports = reports.filter((r) => r.status === "classifier");
-                break;
-
-            case "assignes":
-                baseReports = reports.filter(
-                    (r) =>
-                        r.assigned_to &&
-                        r.assigned_to !== "Non assigné" &&
-                        r.assigned_to !== "" &&
-                        r.assigned_to !== null
-                );
-                break;
-
-            default:
-                baseReports = allReports;
-        }
+        let baseReports = allReports;
 
         if (activeCategory !== "tous") {
             baseReports = baseReports.filter(
@@ -354,13 +573,14 @@ const ReportsView = () => {
                 (report.categorieLabel &&
                     report.categorieLabel
                         .toLowerCase()
-                        .includes(filters.search.toLowerCase()));
+                        .includes(filters.search.toLowerCase())) ||
+                report.explication.toLowerCase().includes(filters.search.toLowerCase());
 
             const matchStatut = !filters.statut || report.status === filters.statut;
 
             return matchSearch && matchStatut;
         });
-    }, [allReports, reports, currentTab, filters, activeCategory]);
+    }, [allReports, filters, activeCategory]);
 
     const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -419,17 +639,6 @@ const ReportsView = () => {
         setCurrentPage(1);
     };
 
-    const getSortIcon = (key) => {
-        if (sortConfig.key !== key) {
-            return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
-        }
-        return sortConfig.direction === "asc" ? (
-            <ChevronUp className="w-3 h-3 text-blue-600" />
-        ) : (
-            <ChevronDown className="w-3 h-3 text-blue-600" />
-        );
-    };
-
     const handleFilterChange = (key, value) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
         setCurrentPage(1);
@@ -447,14 +656,15 @@ const ReportsView = () => {
 
     const exportReports = () => {
         const csvContent = [
-            ["RÉFÉRENCE", "DATE", "NOM / PRÉNOM", "CATÉGORIE", "STATUT", "ASSIGNÉ À"],
+            ["ID", "RÉFÉRENCE", "DATE", "NOM / PRÉNOM", "CATÉGORIE", "STATUT", "DESCRIPTION"],
             ...filteredReports.map((report) => [
+                report.id,
                 report.reference,
                 formatDate(report.date),
                 report.nom_prenom,
                 report.categorieLabel || "N/A",
                 getDisplayStatus(report.status),
-                getDisplayAssignedTo(report.assigned_to),
+                report.explication
             ]),
         ]
             .map((row) => row.map((field) => `"${field}"`).join(","))
@@ -475,6 +685,7 @@ const ReportsView = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        showToastMessage("Export CSV réalisé avec succès", "success");
     };
 
     const handleViewReport = (report) => {
@@ -517,7 +728,7 @@ const ReportsView = () => {
     const handleStatusUpdate = (report) => {
         setSelectedReportForAction(report);
         setStatusData({
-            status: report.status || "",
+            status: report.status === "en_cours" ? "" : report.status || "",
         });
         setShowStatusModal(true);
     };
@@ -539,37 +750,12 @@ const ReportsView = () => {
 
     const handleDeleteReport = (report) => {
         setSelectedReportForAction(report);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDeleteReport = async () => {
-        if (!selectedReportForAction) return;
-
-        try {
-            const reportId = selectedReportForAction.id;
-            const response = await API.delete(`/reports/${reportId}`);
-
-            if (response.data.success) {
-                setShowDeleteModal(false);
-                setSelectedReportForAction(null);
-
-                if (selectedReport?.id === reportId) {
-                    setSelectedReport(null);
-                }
-
-                await fetchReports();
-            }
-        } catch (error) {
-            if (error.response?.status === 404) {
-                await fetchReports();
-                setShowDeleteModal(false);
-                setSelectedReportForAction(null);
-            } else if (error.response?.status === 403) {
-                alert("❌ Vous n'avez pas les droits pour supprimer ce signalement");
-            } else {
-                alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
-            }
-        }
+        showConfirmationModal(
+            "Supprimer ce signalement ?",
+            "Cette action est irréversible. Le signalement sera définitivement supprimé.",
+            report.id,
+            'delete'
+        );
     };
 
     const toggleSection = (section) => {
@@ -594,8 +780,9 @@ const ReportsView = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
+            showToastMessage("Fichier téléchargé avec succès", "success");
         } catch (error) {
-            alert("Erreur lors du téléchargement du fichier");
+            showToastMessage("Erreur lors du téléchargement du fichier", "error");
         }
     };
 
@@ -624,15 +811,15 @@ const ReportsView = () => {
         e.preventDefault();
 
         if (!newReport.category) {
-            alert("Veuillez sélectionner une catégorie");
+            showToastMessage("Veuillez sélectionner une catégorie", "error");
             return;
         }
         if (!newReport.description) {
-            alert("La description est obligatoire");
+            showToastMessage("La description est obligatoire", "error");
             return;
         }
         if (newReport.type === "identifie" && !newReport.name) {
-            alert("Le nom est obligatoire pour un signalement identifié");
+            showToastMessage("Le nom est obligatoire pour un signalement identifié", "error");
             return;
         }
 
@@ -683,8 +870,9 @@ const ReportsView = () => {
                 setShowCreateModal(false);
                 await fetchReports();
 
-                alert(
-                    `✅ Signalement créé avec succès!\nRéférence: ${response.data.reference}`
+                showToastMessage(
+                    `Signalement créé avec succès! Référence: ${response.data.reference}`,
+                    "success"
                 );
             }
         } catch (error) {
@@ -699,9 +887,9 @@ const ReportsView = () => {
                     )
                     .join("\n");
 
-                alert(`❌ Erreur de validation:\n\n${errorMessages}`);
+                showToastMessage(`Erreur de validation:\n\n${errorMessages}`, "error");
             } else {
-                alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+                showToastMessage(`Erreur: ${error.response?.data?.message || error.message}`, "error");
             }
         }
     };
@@ -736,11 +924,14 @@ const ReportsView = () => {
                 if (selectedReport?.id === selectedReportForAction.id) {
                     setSelectedReport((prev) => ({ ...prev, ...updateData }));
                 }
+
+                showToastMessage("Signalement modifié avec succès", "success");
             }
         } catch (error) {
-            alert(
+            showToastMessage(
                 "Erreur lors de la modification: " +
-                (error.response?.data?.message || error.message)
+                (error.response?.data?.message || error.message),
+                "error"
             );
         }
     };
@@ -759,13 +950,13 @@ const ReportsView = () => {
             );
 
             if (response.data.success) {
-                alert("Dossier assigné avec succès!");
+                showToastMessage("Dossier assigné avec succès!", "success");
                 await fetchReports();
                 setShowAssignModal(false);
                 setSelectedReportForAction(null);
             }
         } catch (error) {
-            alert("Erreur: " + (error.response?.data?.message || error.message));
+            showToastMessage("Erreur: " + (error.response?.data?.message || error.message), "error");
         }
     };
 
@@ -773,7 +964,7 @@ const ReportsView = () => {
         e.preventDefault();
 
         if (!selectedReportForAction || !statusData.status) {
-            alert("Veuillez sélectionner un statut");
+            showToastMessage("Veuillez sélectionner un statut", "error");
             return;
         }
 
@@ -786,10 +977,11 @@ const ReportsView = () => {
             );
 
             if (response.data.success) {
-                alert(
-                    `✅ Statut mis à jour avec succès !\nNouveau statut: ${getDisplayStatus(
+                showToastMessage(
+                    `Statut mis à jour avec succès !\nNouveau statut: ${getDisplayStatus(
                         statusData.status
-                    )}`
+                    )}`,
+                    "success"
                 );
 
                 setShowStatusModal(false);
@@ -801,7 +993,7 @@ const ReportsView = () => {
                 await fetchReports();
             }
         } catch (error) {
-            alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+            showToastMessage(`Erreur: ${error.response?.data?.message || error.message}`, "error");
         }
     };
 
@@ -818,15 +1010,13 @@ const ReportsView = () => {
         const reportStats = {
             total: filteredReports.length,
             en_cours: filteredReports.filter((r) => r.status === "en_cours").length,
-            finalise: filteredReports.filter((r) => r.status === "finalise").length,
-            investigation: filteredReports.filter((r) => r.status === "investigation")
-                .length,
             transmis_autorite: filteredReports.filter(
                 (r) => r.status === "transmis_autorite"
             ).length,
             classifier: filteredReports.filter((r) => r.status === "classifier")
                 .length,
-            refuse: filteredReports.filter((r) => r.status === "refuse").length,
+            investigation: filteredReports.filter((r) => r.status === "investigation")
+                .length,
         };
 
         const generatedReportData = {
@@ -843,6 +1033,7 @@ const ReportsView = () => {
 
         setGeneratedReport(generatedReportData);
         setShowReportPreview(true);
+        showToastMessage("Rapport généré avec succès", "success");
     };
 
     const exportToPDF = () => {
@@ -878,30 +1069,13 @@ const ReportsView = () => {
                 }
 
                 pdf.save(`rapport_signalements_${generatedReport.dateGeneration}.pdf`);
+                showToastMessage("PDF exporté avec succès", "success");
             })
             .catch((error) => {
                 console.error("Erreur lors de la génération du PDF:", error);
+                showToastMessage("Erreur lors de la génération du PDF", "error");
             });
     };
-
-    const getTabStats = () => {
-        return {
-            tous: allReports.length,
-            anonyme: reports.filter((r) => r.type_signalement === "Anonyme").length,
-            "non-anonyme": reports.filter((r) => r.type_signalement === "Non-Anonyme")
-                .length,
-            classifier: reports.filter((r) => r.status === "classifier").length,
-            assignes: reports.filter(
-                (r) =>
-                    r.assigned_to &&
-                    r.assigned_to !== "Non assigné" &&
-                    r.assigned_to !== "" &&
-                    r.assigned_to !== null
-            ).length,
-        };
-    };
-
-    const tabStats = getTabStats();
 
     const cat = categories.find((c) => c.id === activeCategory);
     const categoryStats = calculateCategoryStats(activeCategory);
@@ -940,6 +1114,26 @@ const ReportsView = () => {
             }
           `}
                 </style>
+
+                {/* Toast Notification */}
+                <ToastNotification
+                    message={toast.message}
+                    type={toast.type}
+                    show={toast.show}
+                    onClose={() => setToast(prev => ({ ...prev, show: false }))}
+                />
+
+                {/* Confirmation Modal */}
+                <ConfirmationModal
+                    show={confirmationModal.show}
+                    title={confirmationModal.title}
+                    message={confirmationModal.message}
+                    onConfirm={handleConfirmation}
+                    onCancel={closeConfirmationModal}
+                    confirmText="Supprimer"
+                    cancelText="Annuler"
+                />
+
                 <div className="print-section p-4 bg-white min-h-screen">
                     <div className="flex items-center justify-between mb-4 no-print">
                         <div>
@@ -1009,17 +1203,13 @@ const ReportsView = () => {
                                                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                                     selectedReport.status === "en_cours"
                                                         ? "bg-yellow-100 text-yellow-800"
-                                                        : selectedReport.status === "finalise"
-                                                            ? "bg-green-100 text-green-800"
+                                                        : selectedReport.status === "transmis_autorite"
+                                                            ? "bg-indigo-100 text-indigo-800"
                                                             : selectedReport.status === "classifier"
                                                                 ? "bg-blue-100 text-blue-800"
                                                                 : selectedReport.status === "investigation"
                                                                     ? "bg-purple-100 text-purple-800"
-                                                                    : selectedReport.status === "transmis_autorite"
-                                                                        ? "bg-indigo-100 text-indigo-800"
-                                                                        : selectedReport.status === "refuse"
-                                                                            ? "bg-red-100 text-red-800"
-                                                                            : "bg-gray-100 text-gray-800"
+                                                                    : "bg-gray-100 text-gray-800"
                                                 }`}
                                             >
                         {getDisplayStatus(selectedReport.status)}
@@ -1280,13 +1470,6 @@ const ReportsView = () => {
                                 Imprimer
                             </button>
                             <button
-                                onClick={() => handleAssignReport(selectedReport)}
-                                className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                                <UserCheck className="w-3 h-3" />
-                                Assigner
-                            </button>
-                            <button
                                 onClick={() => handleStatusUpdate(selectedReport)}
                                 className="flex items-center gap-1 px-3 py-1 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
                             >
@@ -1296,65 +1479,6 @@ const ReportsView = () => {
                         </div>
                     </div>
                 </div>
-
-                {showAssignModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-                        <div className="bg-white rounded-lg w-full max-w-md mx-4">
-                            <div className="flex items-center justify-between p-4 border-b">
-                                <h2 className="text-lg font-semibold">
-                                    Assigner le signalement
-                                </h2>
-                                <button
-                                    onClick={() => setShowAssignModal(false)}
-                                    className="p-1 hover:bg-gray-100 rounded"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleAssignSubmit} className="p-4 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Assigner à *
-                                    </label>
-                                    <select
-                                        value={assignData.assignTo}
-                                        onChange={(e) =>
-                                            setAssignData((prev) => ({
-                                                ...prev,
-                                                assignTo: e.target.value,
-                                            }))
-                                        }
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        required
-                                    >
-                                        {assignToOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-4 border-t">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAssignModal(false)}
-                                        className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
-                                    >
-                                        Assigner
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
 
                 {showStatusModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
@@ -1388,14 +1512,11 @@ const ReportsView = () => {
                                         required
                                     >
                                         <option value="">Sélectionner un statut</option>
-                                        {/* En cours supprimé */}
-                                        <option value="investigation">Investigation</option>
+                                        <option value="investigation">Ouverture d'enquêtes</option>
                                         <option value="transmis_autorite">
                                             Transmis aux autorités compétentes
                                         </option>
-                                        <option value="classifier">Complété</option>
-                                        <option value="refuse">Refusé</option>
-                                        {/* Finalisé supprimé */}
+                                        <option value="classifier">Dossier classé sans suite</option>
                                     </select>
                                 </div>
 
@@ -1699,83 +1820,6 @@ const ReportsView = () => {
                         </div>
                     </div>
                 )}
-
-                {showDeleteModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
-                            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-xl">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-full">
-                                        <AlertTriangle className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-bold text-white">
-                                            Confirmer la suppression
-                                        </h2>
-                                        <p className="text-red-100 text-sm">Action irréversible</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6">
-                                <div className="flex items-center gap-4 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Trash2 className="w-5 h-5 text-red-600" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-red-800 text-sm">
-                                            Signalement à supprimer
-                                        </h3>
-                                        <p className="text-red-600 text-xs">
-                                            {selectedReportForAction?.reference} -{" "}
-                                            {selectedReportForAction?.nom_prenom}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                            <h4 className="font-semibold text-amber-800 text-sm mb-1">
-                                                Attention
-                                            </h4>
-                                            <p className="text-amber-700 text-xs leading-relaxed">
-                                                Cette action est définitive et ne peut pas être annulée.
-                                                Toutes les données associées à ce signalement seront
-                                                définitivement supprimées du système.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-                                    <CheckCircle className="w-4 h-4 text-gray-400" />
-                                    <span>
-                    Veuillez confirmer votre intention de supprimer ce
-                    signalement
-                  </span>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
-                                <button
-                                    onClick={() => setShowDeleteModal(false)}
-                                    className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    onClick={confirmDeleteReport}
-                                    className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Supprimer définitivement
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </>
         );
     }
@@ -1783,6 +1827,14 @@ const ReportsView = () => {
     if (showReportModal) {
         return (
             <div className="min-h-screen bg-gray-50 p-4">
+                {/* Toast Notification */}
+                <ToastNotification
+                    message={toast.message}
+                    type={toast.type}
+                    show={toast.show}
+                    onClose={() => setToast(prev => ({ ...prev, show: false }))}
+                />
+
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">
@@ -2039,33 +2091,21 @@ const ReportsView = () => {
                       </span>
                                         </div>
                                         <div className="flex justify-between border-b pb-2">
-                                            <span>Signalements finalisés:</span>
-                                            <span className="font-bold text-green-600">
-                        {generatedReport.stats.finalise}
-                      </span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-2">
-                                            <span>En investigation:</span>
-                                            <span className="font-bold text-purple-600">
-                        {generatedReport.stats.investigation}
-                      </span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-2">
                                             <span>Transmis aux autorités compétentes:</span>
                                             <span className="font-bold text-indigo-600">
                         {generatedReport.stats.transmis_autorite}
                       </span>
                                         </div>
                                         <div className="flex justify-between border-b pb-2">
-                                            <span>Signalements refusés:</span>
-                                            <span className="font-bold text-red-600">
-                        {generatedReport.stats.refuse}
+                                            <span>Dossiers classés sans suite:</span>
+                                            <span className="font-bold text-blue-600">
+                        {generatedReport.stats.classifier}
                       </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span>Signalements complétés:</span>
-                                            <span className="font-bold text-blue-600">
-                        {generatedReport.stats.classifier}
+                                            <span>Ouverture d'enquêtes:</span>
+                                            <span className="font-bold text-purple-600">
+                        {generatedReport.stats.investigation}
                       </span>
                                         </div>
                                     </div>
@@ -2103,31 +2143,21 @@ const ReportsView = () => {
                                             </li>
                                             <li>
                                                 <strong>
-                                                    {generatedReport.stats.finalise} affaires
+                                                    {generatedReport.stats.transmis_autorite} dossiers
                                                 </strong>{" "}
-                                                ont été résolues avec succès
+                                                ont été transmis aux autorités compétentes
+                                            </li>
+                                            <li>
+                                                <strong>
+                                                    {generatedReport.stats.classifier} dossiers
+                                                </strong>{" "}
+                                                ont été classés sans suite
                                             </li>
                                             <li>
                                                 <strong>
                                                     {generatedReport.stats.investigation} cas
                                                 </strong>{" "}
                                                 font l'objet d'une investigation approfondie
-                                            </li>
-                                            <li>
-                                                <strong>
-                                                    {generatedReport.stats.transmis_autorite} dossiers
-                                                </strong>{" "}
-                                                ont été transmis aux autorités compétentes
-                                            </li>
-                                            <li>
-                                                <strong>{generatedReport.stats.refuse} dossiers</strong>{" "}
-                                                ont été refusés après examen
-                                            </li>
-                                            <li>
-                                                <strong>
-                                                    {generatedReport.stats.classifier} dossiers
-                                                </strong>{" "}
-                                                ont été complétés et classés
                                             </li>
                                         </ul>
 
@@ -2187,21 +2217,32 @@ const ReportsView = () => {
 
     return (
         <div className="p-4">
+            {/* Toast Notification */}
+            <ToastNotification
+                message={toast.message}
+                type={toast.type}
+                show={toast.show}
+                onClose={() => setToast(prev => ({ ...prev, show: false }))}
+            />
+
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                show={confirmationModal.show}
+                title={confirmationModal.title}
+                message={confirmationModal.message}
+                onConfirm={handleConfirmation}
+                onCancel={closeConfirmationModal}
+                confirmText="Supprimer"
+                cancelText="Annuler"
+            />
+
             <div className="flex items-center justify-between mb-3">
                 <div>
                     <h1 className="text-base font-semibold">
-                        {currentTab === "classifier"
-                            ? "Dossiers complétés"
-                            : currentTab === "assignes"
-                                ? "Dossiers assignés"
-                                : "Liste complète des signalements"}
+                        Liste complète des signalements
                     </h1>
                     <p className="text-xs text-gray-500">
-                        {currentTab === "classifier"
-                            ? "Signalements ayant déjà été complétés."
-                            : currentTab === "assignes"
-                                ? "Signalements assignés à une entité de traitement."
-                                : "Gestion et suivi des dossiers avec filtres avancés."}
+                        Gestion et suivi des dossiers avec filtres avancés.
                     </p>
                 </div>
 
@@ -2305,9 +2346,9 @@ const ReportsView = () => {
                             <div className="text-gray-500 text-sm mt-1">En cours</div>
                         </div>
                         <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
-                            <div className="text-2xl font-bold text-green-600">
+                            <div className="text-2xl font-bold text-blue-600">
                                 {activeCategory === "tous"
-                                    ? reports.filter((r) => r.status === "finalise").length
+                                    ? reports.filter((r) => r.status === "classifier").length
                                     : categoryStats.resolus}
                             </div>
                             <div className="text-gray-500 text-sm mt-1">Résolus</div>
@@ -2316,85 +2357,13 @@ const ReportsView = () => {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-3">
-                <button
-                    className={
-                        currentTab === "tous"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("tous");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Tous ({tabStats.tous})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "anonyme"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("anonyme");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Anonymes ({tabStats.anonyme})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "non-anonyme"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("non-anonyme");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Non-Anonymes ({tabStats["non-anonyme"]})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "assignes"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("assignes");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Dossiers Assignés ({tabStats.assignes})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "classifier"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("classifier");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Dossiers Complétés ({tabStats.classifier})
-                </button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
                 <div className="md:col-span-2">
                     <input
                         type="text"
                         value={filters.search}
                         onChange={(e) => handleFilterChange("search", e.target.value)}
-                        placeholder="Rechercher par référence, nom..."
+                        placeholder="Rechercher par référence, nom, description..."
                         className="w-full px-2 py-1 text-xs border rounded-md"
                     />
                 </div>
@@ -2427,11 +2396,9 @@ const ReportsView = () => {
                     >
                         <option value="">Tous les statuts</option>
                         <option value="en_cours">En cours</option>
-                        <option value="finalise">Finalisé</option>
-                        <option value="classifier">Complété</option>
-                        <option value="investigation">Investigation</option>
+                        <option value="classifier">Dossier classé sans suite</option>
+                        <option value="investigation">Ouverture d'enquêtes</option>
                         <option value="transmis_autorite">Transmis aux autorités</option>
-                        <option value="refuse">Refusé</option>
                     </select>
                 </div>
             </div>
@@ -2472,26 +2439,44 @@ const ReportsView = () => {
                             <tr>
                                 <th className="px-2 py-2 text-left">
                                     <button
+                                        onClick={() => handleSort("id")}
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
+                                    >
+                                        <span>ID</span>
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "id"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
+                                    </button>
+                                </th>
+                                <th className="px-2 py-2 text-left">
+                                    <button
                                         onClick={() => handleSort("reference")}
-                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
                                     >
                                         <span>RÉFÉRENCE</span>
-                                        {getSortIcon("reference")}
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "reference"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
                                     </button>
                                 </th>
                                 <th className="px-2 py-2 text-left">
                                     <button
                                         onClick={() => handleSort("date")}
-                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
                                     >
                                         <span>DATE</span>
-                                        {getSortIcon("date")}
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "date"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
                                     </button>
                                 </th>
                                 <th className="px-2 py-2 text-left">NOM / PRÉNOM</th>
                                 <th className="px-2 py-2 text-left">CATÉGORIE</th>
+                                <th className="px-2 py-2 text-left">DESCRIPTION</th>
                                 <th className="px-2 py-2 text-left">STATUT</th>
-                                <th className="px-2 py-2 text-left">ASSIGNÉ À</th>
                                 <th className="px-2 py-2 text-left">ACTIONS</th>
                             </tr>
                             </thead>
@@ -2499,45 +2484,34 @@ const ReportsView = () => {
                             {paginatedReports.map((report) => (
                                 <tr key={report.id} className="border-t hover:bg-gray-50">
                                     <td className="px-2 py-2 font-medium">
+                                        {report.id}
+                                    </td>
+                                    <td className="px-2 py-2 font-medium">
                                         {report.reference}
                                     </td>
                                     <td className="px-2 py-2">{formatDate(report.date)}</td>
                                     <td className="px-2 py-2">{report.nom_prenom}</td>
                                     <td className="px-2 py-2">{report.categorieLabel}</td>
+                                    <td className="px-2 py-2 max-w-[150px]">
+                                        <div className="text-xs text-gray-600 line-clamp-2">
+                                            {report.shortDescription}
+                                        </div>
+                                    </td>
                                     <td className="px-2 py-2">
                       <span
                           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               report.status === "en_cours"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : report.status === "finalise"
-                                      ? "bg-green-100 text-green-800"
+                                  : report.status === "transmis_autorite"
+                                      ? "bg-indigo-100 text-indigo-800"
                                       : report.status === "classifier"
                                           ? "bg-blue-100 text-blue-800"
                                           : report.status === "investigation"
                                               ? "bg-purple-100 text-purple-800"
-                                              : report.status === "transmis_autorite"
-                                                  ? "bg-indigo-100 text-indigo-800"
-                                                  : report.status === "refuse"
-                                                      ? "bg-red-100 text-red-800"
-                                                      : "bg-gray-100 text-gray-800"
+                                              : "bg-gray-100 text-gray-800"
                           }`}
                       >
                         {getDisplayStatus(report.status)}
-                      </span>
-                                    </td>
-                                    <td className="px-2 py-2">
-                      <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              report.assigned_to === "investigateur"
-                                  ? "bg-indigo-100 text-indigo-800"
-                                  : report.assigned_to === "cac_daj"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : report.assigned_to === "autorite_competente"
-                                          ? "bg-cyan-100 text-cyan-800"
-                                          : "bg-gray-100 text-gray-800"
-                          }`}
-                      >
-                        {getDisplayAssignedTo(report.assigned_to)}
                       </span>
                                     </td>
                                     <td className="px-2 py-2">
@@ -2558,13 +2532,6 @@ const ReportsView = () => {
                                                 <Printer className="w-3 h-3" />
                                             </button>
 
-                                            <button
-                                                onClick={() => handleAssignReport(report)}
-                                                className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
-                                                title="Assigner"
-                                            >
-                                                <UserCheck className="w-3 h-3" />
-                                            </button>
                                             <button
                                                 onClick={() => handleStatusUpdate(report)}
                                                 className="p-1 text-amber-600 hover:bg-amber-100 rounded transition-colors"
@@ -2881,63 +2848,6 @@ const ReportsView = () => {
                 </div>
             )}
 
-            {showAssignModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-white rounded-lg w-full max-w-md mx-4">
-                        <div className="flex items-center justify-between p-4 border-b">
-                            <h2 className="text-lg font-semibold">Assigner le signalement</h2>
-                            <button
-                                onClick={() => setShowAssignModal(false)}
-                                className="p-1 hover:bg-gray-100 rounded"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAssignSubmit} className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Assigner à *
-                                </label>
-                                <select
-                                    value={assignData.assignTo}
-                                    onChange={(e) =>
-                                        setAssignData((prev) => ({
-                                            ...prev,
-                                            assignTo: e.target.value,
-                                        }))
-                                    }
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                    required
-                                >
-                                    {assignToOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4 border-t">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAssignModal(false)}
-                                    className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
-                                >
-                                    Assigner
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
             {showStatusModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
                     <div className="bg-white rounded-lg w-full max-w-md mx-4">
@@ -2968,14 +2878,11 @@ const ReportsView = () => {
                                     required
                                 >
                                     <option value="">Sélectionner un statut</option>
-                                    {/* En cours supprimé */}
-                                    <option value="investigation">Investigation</option>
+                                    <option value="investigation">Ouverture d'enquêtes</option>
                                     <option value="transmis_autorite">
                                         Transmis aux autorités compétentes
                                     </option>
-                                    <option value="classifier">Complété</option>
-                                    <option value="refuse">Refusé</option>
-                                    {/* Finalisé supprimé */}
+                                    <option value="classifier">Dossier classé sans suite</option>
                                 </select>
                             </div>
 
@@ -3294,82 +3201,6 @@ const ReportsView = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
-
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
-                        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-xl">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-full">
-                                    <AlertTriangle className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-white">
-                                        Confirmer la suppression
-                                    </h2>
-                                    <p className="text-red-100 text-sm">Action irréversible</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="flex items-center gap-4 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <Trash2 className="w-5 h-5 text-red-600" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-red-800 text-sm">
-                                        Signalement à supprimer
-                                    </h3>
-                                    <p className="text-red-600 text-xs">
-                                        {selectedReportForAction?.reference} -{" "}
-                                        {selectedReportForAction?.nom_prenom}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                                <div className="flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <h4 className="font-semibold text-amber-800 text-sm mb-1">
-                                            Attention
-                                        </h4>
-                                        <p className="text-amber-700 text-xs leading-relaxed">
-                                            Cette action est définitive et ne peut pas être annulée.
-                                            Toutes les données associées à ce signalement seront
-                                            définitivement supprimées du système.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-                                <CheckCircle className="w-4 h-4 text-gray-400" />
-                                <span>
-                  Veuillez confirmer votre intention de supprimer ce signalement
-                </span>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
-                            <button
-                                onClick={() => setShowDeleteModal(false)}
-                                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={confirmDeleteReport}
-                                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Supprimer définitivement
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}

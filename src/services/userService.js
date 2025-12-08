@@ -1,6 +1,7 @@
 import API from '../config/axios';
 
 class UserService {
+
     // ==================== CSRF PROTECTION ====================
 
     /**
@@ -24,7 +25,6 @@ class UserService {
     static async login(email, password) {
         try {
             console.log('[UserService] Tentative de connexion...');
-
             // ✅ Obtenir le CSRF avant le login
             await this.getCsrfCookie();
 
@@ -37,7 +37,7 @@ class UserService {
             if (error.response && error.response.status === 401) {
                 return {
                     success: false,
-                    message: "Email ou mot de passe incorrect"
+                    message: "Identifiants incorrects"
                 };
             }
 
@@ -164,7 +164,6 @@ class UserService {
     static async createUser(userData) {
         try {
             console.log('[UserService] createUser appelé avec:', userData);
-
             // ✅ CSRF avant POST
             await this.getCsrfCookie();
 
@@ -183,7 +182,6 @@ class UserService {
     static async updateUser(id, userData) {
         try {
             console.log('[UserService] updateUser appelé:', id, userData);
-
             // ✅ CSRF avant PUT
             await this.getCsrfCookie();
 
@@ -202,7 +200,6 @@ class UserService {
     static async deleteUser(id) {
         try {
             console.log('[UserService] deleteUser appelé:', id);
-
             // ✅ CSRF avant DELETE
             await this.getCsrfCookie();
 
@@ -221,7 +218,6 @@ class UserService {
     static async toggleStatus(id) {
         try {
             console.log('[UserService] toggleStatus appelé:', id);
-
             // ✅ CSRF avant PATCH
             await this.getCsrfCookie();
 
@@ -382,7 +378,7 @@ class UserService {
 
             // ✅ Garde le message backend et affiche le debug
             if (status === 401) {
-                message = 'Session expirée ou identifiants incorrects';
+                message = 'Votre session a expiré, veuillez vous reconnecter';
             } else if (status === 403) {
                 // Afficher le debug dans la console pour voir le rôle
                 console.warn('[UserService] 403 Forbidden - Debug:', data?.debug);

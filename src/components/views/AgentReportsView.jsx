@@ -17,6 +17,8 @@ import {
     Tag,
     BarChart,
     X,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import API from "../../config/axios";
 
@@ -24,8 +26,18 @@ import repLogo from "../../assets/images/logo rep.png";
 import mesupresLogo from "../../assets/images/logo mesupres.png";
 import fosikaLogo from "../../assets/images/logo fosika.png";
 
+const SortIcon = ({ isSorted, isAsc }) => {
+    if (!isSorted) {
+        return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
+    }
+    return isAsc ? (
+        <ArrowUp className="w-3 h-3 text-blue-600" />
+    ) : (
+        <ArrowDown className="w-3 h-3 text-blue-600" />
+    );
+};
+
 const AgentReportsView = () => {
-    const [currentTab, setCurrentTab] = useState("tous");
     const [filters, setFilters] = useState({
         search: "",
         statut: "",
@@ -104,6 +116,12 @@ const AgentReportsView = () => {
                         }
                     } catch (e) {}
 
+                    // Créer une description abrégée
+                    const fullDescription = report.description || "Aucune description";
+                    const shortDescription = fullDescription.length > 80
+                        ? fullDescription.substring(0, 80) + '...'
+                        : fullDescription;
+
                     return {
                         id: report.id,
                         reference: report.reference,
@@ -118,6 +136,7 @@ const AgentReportsView = () => {
                         raison: report.title || "Non spécifié",
                         type_signalement: report.is_anonymous ? "Anonyme" : "Non-Anonyme",
                         explication: report.description || "Aucune description",
+                        shortDescription: shortDescription,
                         files: filesArray,
                         status: report.status || "en_cours",
                         assigned_to: report.assigned_to || "Non assigné",
@@ -150,7 +169,7 @@ const AgentReportsView = () => {
                 (report) => report.status === "en_cours"
             ).length;
             const resolus = reports.filter(
-                (report) => report.status === "finalise"
+                (report) => report.status === "classifier"
             ).length;
             return { total, encours, resolus };
         }
@@ -163,7 +182,7 @@ const AgentReportsView = () => {
             (report) => report.status === "en_cours"
         ).length;
         const resolus = categoryReports.filter(
-            (report) => report.status === "finalise"
+            (report) => report.status === "classifier"
         ).length;
 
         return { total, encours, resolus };
@@ -186,11 +205,9 @@ const AgentReportsView = () => {
     const getDisplayStatus = (status) => {
         const statusMap = {
             en_cours: "En cours",
-            investigation: "Investigation",
+            investigation: "Ouverture d'enquêtes",
             transmis_autorite: "Transmis aux autorités compétentes",
-            classifier: "Complété",
-            finalise: "Finalisé",
-            refuse: "Refusé",
+            classifier: "Dossier classé sans suite",
         };
         return statusMap[status] || status;
     };
@@ -234,36 +251,7 @@ const AgentReportsView = () => {
     }, [reports, sortConfig]);
 
     const filteredReports = useMemo(() => {
-        let baseReports = [];
-
-        switch (currentTab) {
-            case "anonyme":
-                baseReports = reports.filter((r) => r.type_signalement === "Anonyme");
-                break;
-
-            case "non-anonyme":
-                baseReports = reports.filter(
-                    (r) => r.type_signalement === "Non-Anonyme"
-                );
-                break;
-
-            case "classifier":
-                baseReports = reports.filter((r) => r.status === "classifier");
-                break;
-
-            case "assignes":
-                baseReports = reports.filter(
-                    (r) =>
-                        r.assigned_to &&
-                        r.assigned_to !== "Non assigné" &&
-                        r.assigned_to !== "" &&
-                        r.assigned_to !== null
-                );
-                break;
-
-            default:
-                baseReports = allReports;
-        }
+        let baseReports = allReports;
 
         if (activeCategory !== "tous") {
             baseReports = baseReports.filter(
@@ -304,13 +292,14 @@ const AgentReportsView = () => {
                 (report.categorieLabel &&
                     report.categorieLabel
                         .toLowerCase()
-                        .includes(filters.search.toLowerCase()));
+                        .includes(filters.search.toLowerCase())) ||
+                report.explication.toLowerCase().includes(filters.search.toLowerCase());
 
             const matchStatut = !filters.statut || report.status === filters.statut;
 
             return matchSearch && matchStatut;
         });
-    }, [allReports, reports, currentTab, filters, activeCategory]);
+    }, [allReports, filters, activeCategory]);
 
     const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -369,17 +358,6 @@ const AgentReportsView = () => {
         setCurrentPage(1);
     };
 
-    const getSortIcon = (key) => {
-        if (sortConfig.key !== key) {
-            return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
-        }
-        return sortConfig.direction === "asc" ? (
-            <ChevronUp className="w-3 h-3 text-blue-600" />
-        ) : (
-            <ChevronDown className="w-3 h-3 text-blue-600" />
-        );
-    };
-
     const handleFilterChange = (key, value) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
         setCurrentPage(1);
@@ -397,8 +375,9 @@ const AgentReportsView = () => {
 
     const exportReports = () => {
         const csvContent = [
-            ["RÉFÉRENCE", "DATE", "NOM / PRÉNOM", "CATÉGORIE", "STATUT", "ASSIGNÉ À"],
+            ["ID", "RÉFÉRENCE", "DATE", "NOM / PRÉNOM", "CATÉGORIE", "STATUT", "ASSIGNÉ À"],
             ...filteredReports.map((report) => [
+                report.id,
                 report.reference,
                 formatDate(report.date),
                 report.nom_prenom,
@@ -488,25 +467,6 @@ const AgentReportsView = () => {
         const fileUrl = `${API.defaults.baseURL}/files/${encodedFileName}`;
         window.open(fileUrl, "_blank");
     };
-
-    const getTabStats = () => {
-        return {
-            tous: allReports.length,
-            anonyme: reports.filter((r) => r.type_signalement === "Anonyme").length,
-            "non-anonyme": reports.filter((r) => r.type_signalement === "Non-Anonyme")
-                .length,
-            classifier: reports.filter((r) => r.status === "classifier").length,
-            assignes: reports.filter(
-                (r) =>
-                    r.assigned_to &&
-                    r.assigned_to !== "Non assigné" &&
-                    r.assigned_to !== "" &&
-                    r.assigned_to !== null
-            ).length,
-        };
-    };
-
-    const tabStats = getTabStats();
 
     const cat = categories.find((c) => c.id === activeCategory);
     const categoryStats = calculateCategoryStats(activeCategory);
@@ -614,17 +574,13 @@ const AgentReportsView = () => {
                                                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                                     selectedReport.status === "en_cours"
                                                         ? "bg-yellow-100 text-yellow-800"
-                                                        : selectedReport.status === "finalise"
-                                                            ? "bg-green-100 text-green-800"
-                                                            : selectedReport.status === "classifier"
-                                                                ? "bg-blue-100 text-blue-800"
-                                                                : selectedReport.status === "investigation"
-                                                                    ? "bg-purple-100 text-purple-800"
-                                                                    : selectedReport.status === "transmis_autorite"
-                                                                        ? "bg-indigo-100 text-indigo-800"
-                                                                        : selectedReport.status === "refuse"
-                                                                            ? "bg-red-100 text-red-800"
-                                                                            : "bg-gray-100 text-gray-800"
+                                                        : selectedReport.status === "classifier"
+                                                            ? "bg-blue-100 text-blue-800"
+                                                            : selectedReport.status === "investigation"
+                                                                ? "bg-purple-100 text-purple-800"
+                                                                : selectedReport.status === "transmis_autorite"
+                                                                    ? "bg-indigo-100 text-indigo-800"
+                                                                    : "bg-gray-100 text-gray-800"
                                                 }`}
                                             >
                         {getDisplayStatus(selectedReport.status)}
@@ -880,18 +836,10 @@ const AgentReportsView = () => {
             <div className="flex items-center justify-between mb-3">
                 <div>
                     <h1 className="text-base font-semibold">
-                        {currentTab === "classifier"
-                            ? "Dossiers complétés"
-                            : currentTab === "assignes"
-                                ? "Dossiers assignés"
-                                : "Gestion des Signalements (Agent)"}
+                        Liste complète des signalements (Agent)
                     </h1>
                     <p className="text-xs text-gray-500">
-                        {currentTab === "classifier"
-                            ? "Signalements ayant déjà été complétés."
-                            : currentTab === "assignes"
-                                ? "Signalements assignés à une entité de traitement."
-                                : "Visualisation et consultation des signalements - Vue Agent."}
+                        Consultation et visualisation des dossiers avec filtres avancés.
                     </p>
                 </div>
 
@@ -979,9 +927,9 @@ const AgentReportsView = () => {
                             <div className="text-gray-500 text-sm mt-1">En cours</div>
                         </div>
                         <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
-                            <div className="text-2xl font-bold text-green-600">
+                            <div className="text-2xl font-bold text-blue-600">
                                 {activeCategory === "tous"
-                                    ? reports.filter((r) => r.status === "finalise").length
+                                    ? reports.filter((r) => r.status === "classifier").length
                                     : categoryStats.resolus}
                             </div>
                             <div className="text-gray-500 text-sm mt-1">Résolus</div>
@@ -990,85 +938,13 @@ const AgentReportsView = () => {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-3">
-                <button
-                    className={
-                        currentTab === "tous"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("tous");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Tous ({tabStats.tous})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "anonyme"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("anonyme");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Anonymes ({tabStats.anonyme})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "non-anonyme"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("non-anonyme");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Non-Anonymes ({tabStats["non-anonyme"]})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "assignes"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("assignes");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Dossiers Assignés ({tabStats.assignes})
-                </button>
-
-                <button
-                    className={
-                        currentTab === "classifier"
-                            ? "px-3 py-1 text-xs rounded-full bg-blue-600 text-white"
-                            : "px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
-                    }
-                    onClick={() => {
-                        setCurrentTab("classifier");
-                        setCurrentPage(1);
-                    }}
-                >
-                    Dossiers Complétés ({tabStats.classifier})
-                </button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
                 <div className="md:col-span-2">
                     <input
                         type="text"
                         value={filters.search}
                         onChange={(e) => handleFilterChange("search", e.target.value)}
-                        placeholder="Rechercher par référence, nom..."
+                        placeholder="Rechercher par référence, nom, description..."
                         className="w-full px-2 py-1 text-xs border rounded-md"
                     />
                 </div>
@@ -1101,11 +977,11 @@ const AgentReportsView = () => {
                     >
                         <option value="">Tous les statuts</option>
                         <option value="en_cours">En cours</option>
-                        <option value="finalise">Finalisé</option>
-                        <option value="classifier">Complété</option>
-                        <option value="investigation">Investigation</option>
-                        <option value="transmis_autorite">Transmis aux autorités</option>
-                        <option value="refuse">Refusé</option>
+                        <option value="investigation">Ouverture d'enquêtes</option>
+                        <option value="transmis_autorite">
+                            Transmis aux autorités compétentes
+                        </option>
+                        <option value="classifier">Dossier classé sans suite</option>
                     </select>
                 </div>
             </div>
@@ -1146,26 +1022,44 @@ const AgentReportsView = () => {
                             <tr>
                                 <th className="px-2 py-2 text-left">
                                     <button
+                                        onClick={() => handleSort("id")}
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
+                                    >
+                                        <span>ID</span>
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "id"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
+                                    </button>
+                                </th>
+                                <th className="px-2 py-2 text-left">
+                                    <button
                                         onClick={() => handleSort("reference")}
-                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
                                     >
                                         <span>RÉFÉRENCE</span>
-                                        {getSortIcon("reference")}
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "reference"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
                                     </button>
                                 </th>
                                 <th className="px-2 py-2 text-left">
                                     <button
                                         onClick={() => handleSort("date")}
-                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full"
                                     >
                                         <span>DATE</span>
-                                        {getSortIcon("date")}
+                                        <SortIcon
+                                            isSorted={sortConfig.key === "date"}
+                                            isAsc={sortConfig.direction === "asc"}
+                                        />
                                     </button>
                                 </th>
                                 <th className="px-2 py-2 text-left">NOM / PRÉNOM</th>
                                 <th className="px-2 py-2 text-left">CATÉGORIE</th>
+                                <th className="px-2 py-2 text-left">DESCRIPTION</th>
                                 <th className="px-2 py-2 text-left">STATUT</th>
-                                <th className="px-2 py-2 text-left">ASSIGNÉ À</th>
                                 <th className="px-2 py-2 text-left">ACTIONS</th>
                             </tr>
                             </thead>
@@ -1173,45 +1067,34 @@ const AgentReportsView = () => {
                             {paginatedReports.map((report) => (
                                 <tr key={report.id} className="border-t hover:bg-gray-50">
                                     <td className="px-2 py-2 font-medium">
+                                        {report.id}
+                                    </td>
+                                    <td className="px-2 py-2 font-medium">
                                         {report.reference}
                                     </td>
                                     <td className="px-2 py-2">{formatDate(report.date)}</td>
                                     <td className="px-2 py-2">{report.nom_prenom}</td>
                                     <td className="px-2 py-2">{report.categorieLabel}</td>
+                                    <td className="px-2 py-2 max-w-[150px]">
+                                        <div className="text-xs text-gray-600 line-clamp-2">
+                                            {report.shortDescription}
+                                        </div>
+                                    </td>
                                     <td className="px-2 py-2">
                       <span
                           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               report.status === "en_cours"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : report.status === "finalise"
-                                      ? "bg-green-100 text-green-800"
-                                      : report.status === "classifier"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : report.status === "investigation"
-                                              ? "bg-purple-100 text-purple-800"
-                                              : report.status === "transmis_autorite"
-                                                  ? "bg-indigo-100 text-indigo-800"
-                                                  : report.status === "refuse"
-                                                      ? "bg-red-100 text-red-800"
-                                                      : "bg-gray-100 text-gray-800"
+                                  : report.status === "classifier"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : report.status === "investigation"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : report.status === "transmis_autorite"
+                                              ? "bg-indigo-100 text-indigo-800"
+                                              : "bg-gray-100 text-gray-800"
                           }`}
                       >
                         {getDisplayStatus(report.status)}
-                      </span>
-                                    </td>
-                                    <td className="px-2 py-2">
-                      <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              report.assigned_to === "investigateur"
-                                  ? "bg-indigo-100 text-indigo-800"
-                                  : report.assigned_to === "cac_daj"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : report.assigned_to === "autorite_competente"
-                                          ? "bg-cyan-100 text-cyan-800"
-                                          : "bg-gray-100 text-gray-800"
-                          }`}
-                      >
-                        {getDisplayAssignedTo(report.assigned_to)}
                       </span>
                                     </td>
                                     <td className="px-2 py-2">

@@ -13,6 +13,10 @@ import {
     Loader,
     AlertCircle,
     CheckCircle,
+    ArrowLeft,
+    Lock,
+    Check,
+    X,
 } from "lucide-react";
 
 const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
@@ -30,7 +34,7 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
         current_password: "",
         new_password: "",
         new_password_confirmation: "",
-        role: "", // On laisse vide pour que ça se remplisse via l'API
+        role: "",
         formatted_role: "",
     });
 
@@ -41,43 +45,64 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [avatarLoading, setAvatarLoading] = useState(false);
 
-    // --- LOGIQUE DE DÉTECTION DU RÔLE (Comme dans Header) ---
-    // On utilise le rôle venant de l'API (profileData.role), sinon fallback sur 'admin'
-    const effectiveRole = (profileData.role || "admin").toLowerCase();
+    // État pour la validation du mot de passe
+    const [passwordValidation, setPasswordValidation] = useState({
+        minLength: null,
+        hasUpperCase: null,
+        hasNumber: null,
+        hasSpecialChar: null,
+    });
 
+    // Couleurs par rôle
+    const effectiveRole = (profileData.role || "admin").toLowerCase();
     const roleColors = {
         admin: {
             bg: "bg-blue-600",
-            gradient: "from-blue-600 to-blue-700",
             text: "text-blue-600",
             light: "bg-blue-50",
-            border: "border-blue-200",
-            ring: "focus:ring-blue-500",
+            gradient: "from-blue-600 to-blue-700",
         },
         agent: {
             bg: "bg-green-600",
-            gradient: "from-green-600 to-green-700",
             text: "text-green-600",
             light: "bg-green-50",
-            border: "border-green-200",
-            ring: "focus:ring-green-500",
+            gradient: "from-green-600 to-green-700",
         },
         investigateur: {
             bg: "bg-purple-600",
-            gradient: "from-purple-600 to-purple-700",
             text: "text-purple-600",
             light: "bg-purple-50",
-            border: "border-purple-200",
-            ring: "focus:ring-purple-500",
+            gradient: "from-purple-600 to-purple-700",
         },
     };
-
-    // Couleur active dynamique
     const currentRole = roleColors[effectiveRole] || roleColors.admin;
 
     useEffect(() => {
         fetchUserProfile();
     }, []);
+
+    // Validation du mot de passe en temps réel
+    useEffect(() => {
+        const password = profileData.new_password;
+
+        if (!password) {
+            // Si le champ est vide, tout en gris (null)
+            setPasswordValidation({
+                minLength: null,
+                hasUpperCase: null,
+                hasNumber: null,
+                hasSpecialChar: null,
+            });
+            return;
+        }
+
+        setPasswordValidation({
+            minLength: password.length >= 8,
+            hasUpperCase: /[A-Z]/.test(password),
+            hasNumber: /[0-9]/.test(password),
+            hasSpecialChar: /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/`~]/.test(password),
+        });
+    }, [profileData.new_password]);
 
     const fetchUserProfile = async () => {
         try {
@@ -98,8 +123,8 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
                     username: data.username || "",
                     responsabilites: data.responsabilites || "",
                     specialisations: data.specialisations || "",
-                    role: data.role || "", // Stocke le rôle reçu de la BDD
-                    formatted_role: data.formatted_role || data.role || "Admin",
+                    role: data.role || "",
+                    formatted_role: data.formatted_role || data.role || "Utilisateur",
                 }));
 
                 if (data.avatar) {
@@ -108,6 +133,7 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
             }
         } catch (error) {
             console.error("Erreur profil:", error);
+            setErrors({ submit: "Erreur lors du chargement du profil" });
         } finally {
             setIsLoading(false);
         }
@@ -129,8 +155,12 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
             ...prev,
             [name]: value,
         }));
+
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: null }));
+        }
+        if (errors.submit) {
+            setErrors((prev) => ({ ...prev, submit: null }));
         }
     };
 
@@ -162,9 +192,8 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
             });
 
             if (res.data.success) {
-                setSuccessMessage("Photo mise à jour !");
+                setSuccessMessage("Photo mise à jour");
                 setTimeout(() => setSuccessMessage(""), 3000);
-                // Synchronisation avec le Header
                 if (onAvatarUpdate) onAvatarUpdate();
             }
         } catch (err) {
@@ -180,24 +209,27 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
         setErrors({});
         setSuccessMessage("");
 
+        if (!profileData.first_name.trim() || !profileData.last_name.trim() || !profileData.email.trim()) {
+            setErrors({ submit: "Prénom, Nom et Email sont obligatoires" });
+            return;
+        }
+
         try {
             setIsLoading(true);
             const res = await API.put("/profile", {
-                name: profileData.name,
+                name: profileData.name || `${profileData.first_name} ${profileData.last_name}`,
                 first_name: profileData.first_name,
                 last_name: profileData.last_name,
-                email: profileData.email, // Email modifiable envoyé
+                email: profileData.email,
                 phone: profileData.phone,
                 adresse: profileData.adresse,
-                departement: profileData.departement,
                 responsabilites: profileData.responsabilites,
                 specialisations: profileData.specialisations,
             });
 
             if (res.data.success) {
-                setSuccessMessage("Modifications enregistrées");
+                setSuccessMessage("Informations mises à jour avec succès");
                 setTimeout(() => setSuccessMessage(""), 3000);
-                // Mise à jour immédiate du header (nom, email...)
                 if (onAvatarUpdate) onAvatarUpdate();
             }
         } catch (err) {
@@ -210,12 +242,17 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
     const handleChangePassword = async (e) => {
         e.preventDefault();
         setErrors({});
+        setSuccessMessage("");
+
         if (profileData.new_password !== profileData.new_password_confirmation) {
             setErrors({ submit: "Les mots de passe ne correspondent pas" });
             return;
         }
-        if (profileData.new_password.length < 8) {
-            setErrors({ submit: "Minimum 8 caractères requis" });
+
+        // Validation complète
+        const allValid = Object.values(passwordValidation).every(val => val === true);
+        if (!allValid) {
+            setErrors({ submit: "Le mot de passe ne respecte pas tous les critères de sécurité" });
             return;
         }
 
@@ -227,7 +264,7 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
                 new_password_confirmation: profileData.new_password_confirmation,
             });
 
-            setSuccessMessage("Mot de passe modifié avec succès");
+            setSuccessMessage("Mot de passe changé avec succès");
             setProfileData((prev) => ({
                 ...prev,
                 current_password: "",
@@ -236,7 +273,7 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
             }));
             setTimeout(() => setSuccessMessage(""), 3000);
         } catch (err) {
-            setErrors({ submit: "Erreur modification mot de passe" });
+            setErrors({ submit: err.response?.data?.message || "Erreur lors du changement de mot de passe" });
         } finally {
             setIsLoading(false);
         }
@@ -249,315 +286,381 @@ const Profile = ({ onReturnToDashboard, onAvatarUpdate }) => {
         return profileData.name ? profileData.name.substring(0, 2).toUpperCase() : "U";
     };
 
+    // Composant pour afficher les critères de validation
+    const ValidationItem = ({ isValid, text }) => {
+        let color = "text-gray-400";
+        let Icon = null;
+
+        if (isValid === true) {
+            color = "text-green-600";
+            Icon = Check;
+        } else if (isValid === false) {
+            color = "text-red-600";
+            Icon = X;
+        }
+
+        return (
+            <div className={`flex items-center gap-2 text-xs ${color} transition-colors`}>
+                {Icon ? (
+                    <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-current flex-shrink-0" />
+                )}
+                <span>{text}</span>
+            </div>
+        );
+    };
+
     return (
-        <div className="bg-gray-50 min-h-screen p-8">
-            <div className="max-w-6xl mx-auto">
-                {/* En-tête simple */}
-                <div className="flex items-center mb-8">
-                    <button
-                        onClick={onReturnToDashboard}
-                        className="mr-6 p-3 bg-white rounded-full shadow-sm hover:bg-gray-100 text-gray-600 transition-all hover:-translate-x-1"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                    </button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-800">Mon Profil</h1>
-                        <p className="text-gray-500 mt-1">Gérez vos informations personnelles et votre sécurité</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Carte Profil (Gauche) */}
-                    <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-white rounded-3xl shadow-lg shadow-gray-100 overflow-hidden border border-gray-100">
-                            {/* Bannière colorée dynamique */}
-                            <div className={`h-32 bg-gradient-to-r ${currentRole.gradient}`}></div>
-
-                            <div className="px-8 pb-8 relative">
-                                <div className="relative -mt-16 mb-6 flex justify-center">
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
-                                            {avatarPreview ? (
-                                                <img
-                                                    src={avatarPreview}
-                                                    alt="Avatar"
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className={`w-full h-full flex items-center justify-center ${currentRole.bg} text-white text-4xl font-bold`}>
-                                                    {getInitials()}
-                                                </div>
-                                            )}
-                                            {avatarLoading && (
-                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                    <Loader className="w-8 h-8 text-white animate-spin" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <label className={`absolute bottom-1 right-1 p-2.5 bg-white rounded-full shadow-lg cursor-pointer hover:bg-gray-50 transition-transform hover:scale-110 border border-gray-100 group-hover:block`}>
-                                            <Camera className={`w-5 h-5 ${currentRole.text}`} />
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleAvatarChange}
-                                            />
-                                        </label>
-                                    </div>
+        <div className="min-h-screen bg-gray-50 py-4">
+            <div className="max-w-4xl mx-auto px-3 sm:px-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* HEADER PROFIL */}
+                    <div className={`px-4 py-4 border-b border-gray-200 bg-gradient-to-r ${currentRole.gradient}`}>
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-xl font-bold shadow-md overflow-hidden">
+                                    {avatarPreview ? (
+                                        <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className={currentRole.text}>{getInitials()}</span>
+                                    )}
                                 </div>
-
-                                <div className="text-center">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-1">
-                                        {profileData.name || "Utilisateur"}
-                                    </h2>
-                                    <p className="text-gray-500 mb-4 font-medium">{profileData.email}</p>
-                                    <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide ${currentRole.light} ${currentRole.text} border ${currentRole.border}`}>
-                    {profileData.formatted_role}
-                  </span>
-                                </div>
+                                <label className="absolute bottom-0 right-0 bg-white text-gray-700 p-1 rounded-full cursor-pointer shadow hover:bg-gray-100">
+                                    {avatarLoading ? (
+                                        <Loader className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <Camera className="w-3.5 h-3.5" />
+                                    )}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleAvatarChange}
+                                        disabled={avatarLoading || isLoading}
+                                    />
+                                </label>
+                            </div>
+                            <div className="text-white">
+                                <h1 className="text-lg font-bold">
+                                    {profileData.first_name || profileData.last_name
+                                        ? `${profileData.first_name} ${profileData.last_name}`
+                                        : profileData.name || "Utilisateur"}
+                                </h1>
+                                <p className="text-xs opacity-90">{profileData.email}</p>
+                                <p className="text-xs opacity-80 mt-0.5">
+                                    {profileData.formatted_role} • {profileData.departement || "Département non défini"}
+                                </p>
                             </div>
                         </div>
-
-                        {/* Navigation Latérale */}
-                        <div className="bg-white rounded-2xl shadow-lg shadow-gray-100 border border-gray-100 overflow-hidden">
-                            <nav className="flex flex-col p-2">
-                                <button
-                                    onClick={() => setActiveTab("informations")}
-                                    className={`px-5 py-4 text-left flex items-center space-x-4 rounded-xl transition-all ${
-                                        activeTab === "informations"
-                                            ? `${currentRole.light} ${currentRole.text} font-bold`
-                                            : "text-gray-600 hover:bg-gray-50 font-medium"
-                                    }`}
-                                >
-                                    <User className={`w-5 h-5 ${activeTab === "informations" ? currentRole.text : "text-gray-400"}`} />
-                                    <span>Informations personnelles</span>
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("securite")}
-                                    className={`px-5 py-4 text-left flex items-center space-x-4 rounded-xl transition-all ${
-                                        activeTab === "securite"
-                                            ? `${currentRole.light} ${currentRole.text} font-bold`
-                                            : "text-gray-600 hover:bg-gray-50 font-medium"
-                                    }`}
-                                >
-                                    <Shield className={`w-5 h-5 ${activeTab === "securite" ? currentRole.text : "text-gray-400"}`} />
-                                    <span>Sécurité & Mot de passe</span>
-                                </button>
-                            </nav>
-                        </div>
                     </div>
 
-                    {/* Formulaires (Droite) */}
-                    <div className="lg:col-span-8">
-                        <div className="bg-white rounded-3xl shadow-lg shadow-gray-100 border border-gray-100 p-8 min-h-[600px]">
-                            {successMessage && (
-                                <div className="mb-8 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center animate-fade-in font-medium">
-                                    <CheckCircle className="w-5 h-5 mr-3 text-green-600" />
-                                    {successMessage}
-                                </div>
-                            )}
+                    {/* Onglets */}
+                    <div className="border-b border-gray-200 bg-white">
+                        <nav className="flex -mb-px text-sm font-medium">
+                            <button
+                                onClick={() => setActiveTab("informations")}
+                                className={`px-4 py-2.5 border-b-2 transition-colors ${
+                                    activeTab === "informations"
+                                        ? `${currentRole.text} border-current`
+                                        : "border-transparent text-gray-500 hover:text-gray-700"
+                                }`}
+                            >
+                                Informations personnelles
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("password")}
+                                className={`px-4 py-2.5 border-b-2 transition-colors ${
+                                    activeTab === "password"
+                                        ? `${currentRole.text} border-current`
+                                        : "border-transparent text-gray-500 hover:text-gray-700"
+                                }`}
+                            >
+                                Mot de passe
+                            </button>
+                        </nav>
+                    </div>
 
-                            {errors.submit && (
-                                <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl flex items-center animate-fade-in font-medium">
-                                    <AlertCircle className="w-5 h-5 mr-3 text-red-600" />
-                                    {errors.submit}
-                                </div>
-                            )}
+                    {/* Messages globaux */}
+                    {(successMessage || errors.submit) && (
+                        <div
+                            className={`px-4 py-2.5 text-sm ${
+                                successMessage
+                                    ? "bg-green-50 border-b border-green-200 text-green-700"
+                                    : "bg-red-50 border-b border-red-200 text-red-700"
+                            }`}
+                        >
+                            {successMessage || errors.submit}
+                        </div>
+                    )}
 
-                            {activeTab === "informations" ? (
-                                <form onSubmit={handleSaveInformations} className="space-y-8">
-                                    <div className="border-b border-gray-100 pb-4 mb-6">
-                                        <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                                            <User className={`w-6 h-6 mr-3 ${currentRole.text}`} />
-                                            Modifier mes informations
-                                        </h3>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* CONTENU */}
+                    <div className="p-4">
+                        {activeTab === "informations" ? (
+                            <form onSubmit={handleSaveInformations} className="space-y-5">
+                                {/* Identité */}
+                                <div>
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                        <User className="w-4 h-4 mr-2 text-gray-400" />
+                                        Identité
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Prénom</label>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
                                             <input
                                                 type="text"
                                                 name="first_name"
                                                 value={profileData.first_name}
                                                 onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="Votre prénom"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Nom</label>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
                                             <input
                                                 type="text"
                                                 name="last_name"
                                                 value={profileData.last_name}
                                                 onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="Votre nom"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Nom d'affichage complet</label>
+                                {/* Contact */}
+                                <div>
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                        <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                                        Coordonnées
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={profileData.email}
+                                                onChange={handleInputChange}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
                                             <input
                                                 type="text"
-                                                name="name"
-                                                value={profileData.name}
+                                                name="phone"
+                                                value={profileData.phone}
                                                 onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="Nom complet public"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="+261 ..."
                                             />
                                         </div>
-
-                                        {/* Email Modifiable */}
                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Email professionnel</label>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse</label>
                                             <div className="relative">
-                                                <Mail className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${currentRole.text} w-5 h-5`} />
-                                                <input
-                                                    type="email"
-                                                    name="email"
-                                                    value={profileData.email}
-                                                    onChange={handleInputChange}
-                                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-white shadow-sm`}
-                                                    placeholder="votre.email@fosika.mg"
-                                                />
-                                            </div>
-                                            <p className="text-xs text-gray-400 mt-2 ml-1">Cet email sera utilisé pour votre connexion.</p>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Téléphone</label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                                <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                                                 <input
                                                     type="text"
-                                                    name="phone"
-                                                    value={profileData.phone}
-                                                    onChange={handleInputChange}
-                                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                    placeholder="+261 34..."
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Département / Service</label>
-                                            <div className="relative">
-                                                <Briefcase className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                                <input
-                                                    type="text"
-                                                    name="departement"
-                                                    value={profileData.departement}
-                                                    onChange={handleInputChange}
-                                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                    placeholder="DSI, RH, etc."
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Adresse postale</label>
-                                            <div className="relative">
-                                                <MapPin className="absolute left-4 top-4 text-gray-400 w-5 h-5" />
-                                                <textarea
                                                     name="adresse"
                                                     value={profileData.adresse}
                                                     onChange={handleInputChange}
-                                                    rows="3"
-                                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                    placeholder="Adresse complète..."
+                                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                 />
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className="pt-8 flex justify-end">
-                                        <button
-                                            type="submit"
-                                            disabled={isLoading}
-                                            className={`flex items-center px-8 py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 ${
-                                                isLoading ? "bg-gray-400 cursor-not-allowed" : `${currentRole.bg} hover:opacity-90`
-                                            }`}
-                                        >
-                                            {isLoading ? (
-                                                <>
-                                                    <Loader className="w-5 h-5 mr-2 animate-spin" />
-                                                    Sauvegarde...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Save className="w-5 h-5 mr-2" />
-                                                    Enregistrer les modifications
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </form>
-                            ) : (
-                                <form onSubmit={handleChangePassword} className="space-y-8">
-                                    <div className="border-b border-gray-100 pb-4 mb-6">
-                                        <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                                            <Key className={`w-6 h-6 mr-3 ${currentRole.text}`} />
-                                            Modifier mon mot de passe
-                                        </h3>
-                                    </div>
-
-                                    <div className="space-y-6 max-w-lg">
+                                {/* Infos système */}
+                                <div>
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                        <Briefcase className="w-4 h-4 mr-2 text-gray-400" />
+                                        Informations système
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Mot de passe actuel</label>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Rôle
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={profileData.formatted_role}
+                                                    disabled
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+                                                />
+                                                <Lock className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-2.5" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Département
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={profileData.departement || "Non spécifié"}
+                                                    disabled
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+                                                />
+                                                <Lock className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-2.5" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Nom d'utilisateur
+                                            </label>
                                             <input
-                                                type="password"
-                                                name="current_password"
-                                                value={profileData.current_password}
-                                                onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="••••••••"
+                                                type="text"
+                                                value={profileData.username || "Non défini"}
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                                             />
                                         </div>
-
                                         <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Nouveau mot de passe</label>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Spécialisations
+                                            </label>
                                             <input
-                                                type="password"
-                                                name="new_password"
-                                                value={profileData.new_password}
+                                                type="text"
+                                                name="specialisations"
+                                                value={profileData.specialisations}
                                                 onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="••••••••"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Ex : Fraude, Corruption..."
                                             />
-                                            <p className="text-xs text-gray-400 mt-2">Minimum 8 caractères, chiffres et lettres recommandés.</p>
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-2">Confirmer le nouveau mot de passe</label>
-                                            <input
-                                                type="password"
-                                                name="new_password_confirmation"
-                                                value={profileData.new_password_confirmation}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Responsabilités
+                                            </label>
+                                            <textarea
+                                                name="responsabilites"
+                                                value={profileData.responsabilites}
                                                 onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-transparent focus:ring-2 ${currentRole.ring} transition-all bg-gray-50 focus:bg-white`}
-                                                placeholder="••••••••"
+                                                rows={2}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className="pt-8 flex justify-end">
-                                        <button
-                                            type="submit"
-                                            disabled={isLoading}
-                                            className={`flex items-center px-8 py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 ${
-                                                isLoading ? "bg-gray-400 cursor-not-allowed" : `${currentRole.bg} hover:opacity-90`
-                                            }`}
-                                        >
-                                            {isLoading ? "Traitement..." : "Mettre à jour le mot de passe"}
-                                        </button>
+                                {/* Boutons en bas */}
+                                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                                    <button
+                                        type="button"
+                                        onClick={onReturnToDashboard}
+                                        className="flex items-center text-gray-600 hover:text-gray-800 font-medium text-sm"
+                                        disabled={isLoading}
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-1.5" />
+                                        Retour au tableau de bord
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className={`px-5 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 ${
+                                            isLoading ? "bg-gray-400 cursor-not-allowed" : `${currentRole.bg} hover:opacity-90`
+                                        }`}
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <Loader className="w-4 h-4 animate-spin" />
+                                                Enregistrement...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4" />
+                                                Enregistrer les modifications
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleChangePassword} className="space-y-5 max-w-md mx-auto">
+                                <div className="text-center mb-3">
+                                    <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${currentRole.light} mb-2`}>
+                                        <Key className={`w-5 h-5 ${currentRole.text}`} />
                                     </div>
-                                </form>
-                            )}
-                        </div>
+                                    <h2 className="text-sm font-semibold text-gray-900">Changer le mot de passe</h2>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Utilisez un mot de passe long et difficile à deviner.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                        Mot de passe actuel
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="current_password"
+                                        value={profileData.current_password}
+                                        onChange={handleInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                        Nouveau mot de passe
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="new_password"
+                                        value={profileData.new_password}
+                                        onChange={handleInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+
+                                    {/* Critères de validation */}
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                                        <p className="text-xs font-semibold text-gray-700 mb-2">Sécurité du mot de passe :</p>
+                                        <ValidationItem isValid={passwordValidation.minLength} text="8 caractères minimum" />
+                                        <ValidationItem isValid={passwordValidation.hasUpperCase} text="Première lettre en majuscule" />
+                                        <ValidationItem isValid={passwordValidation.hasNumber} text="Au moins un chiffre" />
+                                        <ValidationItem isValid={passwordValidation.hasSpecialChar} text="Au moins un caractère spécial" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                        Confirmer le nouveau mot de passe
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="new_password_confirmation"
+                                        value={profileData.new_password_confirmation}
+                                        onChange={handleInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Boutons en bas */}
+                                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                                    <button
+                                        type="button"
+                                        onClick={onReturnToDashboard}
+                                        className="flex items-center text-gray-600 hover:text-gray-800 font-medium text-sm"
+                                        disabled={isLoading}
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-1.5" />
+                                        Retour au tableau de bord
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className={`px-5 py-2 rounded-lg text-sm font-medium text-white ${
+                                            isLoading ? "bg-gray-400 cursor-not-allowed" : `${currentRole.bg} hover:opacity-90`
+                                        }`}
+                                    >
+                                        {isLoading ? "Traitement..." : "Mettre à jour le mot de passe"}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             </div>
