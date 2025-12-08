@@ -36,7 +36,7 @@ const pieColors = [
     "#9CA3AF",
 ];
 
-// Catégories
+// Catégories avec texte à la ligne pour les noms trop longs
 const defaultCategoryStructure = [
     {
         id: "faux-diplomes",
@@ -46,7 +46,7 @@ const defaultCategoryStructure = [
     },
     {
         id: "offre-formation-irreguliere",
-        name: "Non habilité",
+        name: "Offre de formation\nirrégulière (non habilité)",
         subtitle: "Offre irrégulière",
         icon: "🎓",
     },
@@ -76,15 +76,15 @@ const defaultCategoryStructure = [
     },
 ];
 
-// Composants UI (conservés de l'ancien code)
+// Composants UI
 const KPICard = ({ title, value, subtitle, icon, color, onClick, isActive }) => (
     <div
         onClick={onClick}
-        className={`bg-white rounded-xl p-5 shadow-sm border cursor-pointer transition-all duration-200 
+        className={`bg-white rounded-xl p-4 shadow-sm border cursor-pointer transition-all duration-200 
       ${
             isActive
                 ? "ring-2 ring-blue-500 border-blue-500 bg-blue-50/30"
-                : "border-slate-100 hover:shadow-md hover:border-slate-300"
+                : "border-slate-100 hover:shadow-md hover:border-slate-200"
         }`}
     >
         <div className="flex justify-between items-start">
@@ -96,87 +96,25 @@ const KPICard = ({ title, value, subtitle, icon, color, onClick, isActive }) => 
                 >
                     {title}
                 </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-                {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+                <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+                {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
             </div>
-            <div className={`p-3 rounded-lg ${color} bg-opacity-10`}>
-                <span className="text-2xl">{icon}</span>
-            </div>
-        </div>
-    </div>
-);
-
-const CategoryCard = ({ category }) => (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition">
-        <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2">
-                <span className="text-xl">{category.icon}</span>
-                <div>
-                    <p className="text-sm font-semibold text-slate-800">{category.name}</p>
-                    <p className="text-xs text-slate-400">{category.subtitle}</p>
-                </div>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{category.total}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 border-t border-slate-100 pt-3">
-            <div>
-                <p className="text-[11px] uppercase tracking-wide">En cours</p>
-                <p className="mt-1 font-semibold text-amber-600">{category.encours}</p>
-            </div>
-            <div>
-                <p className="text-[11px] uppercase tracking-wide">Traités</p>
-                <p className="mt-1 font-semibold text-emerald-600">
-                    {(category.soumis_bianco || 0) + (category.enquetes_completees || 0)}
-                </p>
+            <div className={`p-2 rounded-lg ${color} bg-opacity-10`}>
+                <span className="text-xl">{icon}</span>
             </div>
         </div>
     </div>
 );
 
-const StatusBadge = ({ status }) => {
-    const map = {
-        en_cours: {
-            label: "Ouverture d'enquêtes", // MODIFICATION ICI
-            cls: "bg-blue-50 text-blue-700 border-blue-200",
-        },
-        finalise: {
-            label: "Transmis aux autorités compétentes", // MODIFICATION ICI
-            cls: "bg-purple-50 text-purple-700 border-purple-200",
-        },
-        classifier: {
-            label: "Dossier classé sans suite", // MODIFICATION ICI
-            cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        },
-        doublon: {
-            label: "Doublon",
-            cls: "bg-slate-50 text-slate-600 border-slate-200",
-        },
-        refuse: {
-            label: "Refusé",
-            cls: "bg-red-50 text-red-600 border-red-200",
-        },
-        // Ajout d'autres statuts si nécessaire
-        transmis_autorite: {
-            label: "Transmis aux autorités compétentes", // MODIFICATION ICI
-            cls: "bg-indigo-50 text-indigo-700 border-indigo-200",
-        },
-        investigation: {
-            label: "Ouverture d'enquêtes", // MODIFICATION ICI
-            cls: "bg-cyan-50 text-cyan-700 border-cyan-200",
-        },
+// Fonction pour obtenir l'affichage du statut (identique à ReportsView)
+const getDisplayStatus = (status) => {
+    const statusMap = {
+        en_cours: "En cours",
+        investigation: "Ouverture d'enquêtes",
+        transmis_autorite: "Transmis aux autorités compétentes",
+        classifier: "Dossier classé sans suite",
     };
-    const cfg =
-        map[status] || {
-            label: status || "Inconnu",
-            cls: "bg-gray-50 text-gray-600 border-gray-200",
-        };
-    return (
-        <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.cls}`}
-        >
-      {cfg.label}
-    </span>
-    );
+    return statusMap[status] || status || "Statut inconnu";
 };
 
 // Composant pour l'icône de tri (nouveau style comme ReportsView)
@@ -206,9 +144,9 @@ export default function DashboardView() {
     const [globalStats, setGlobalStats] = useState({
         total: 0,
         en_cours: 0,
-        soumis_bianco: 0,
-        enquetes_completees: 0,
-        transmis_autorite: 0, // Ajouté pour compter les dossiers transmis aux autorités
+        investigation: 0,
+        transmis_autorite: 0,
+        classifier: 0,
     });
     const [monthTotal, setMonthTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -255,8 +193,9 @@ export default function DashboardView() {
             ...category,
             total: 0,
             encours: 0,
-            soumis_bianco: 0,
-            enquetes_completees: 0,
+            investigation: 0,
+            transmis_autorite: 0,
+            classifier: 0,
             color: chartColors[index],
         }));
         setCategories(initialCategories);
@@ -297,66 +236,37 @@ export default function DashboardView() {
 
     const calculateStatsFromReports = (reports) => {
         const total = reports.length;
+
+        // Compter basé sur les valeurs exactes comme dans ReportsView
         const en_cours = reports.filter((r) => r.status === "en_cours").length;
-        const soumis_bianco = reports.filter((r) => r.status === "finalise").length;
-        const enquetes_completees = reports.filter(
-            (r) => r.status === "classifier"
-        ).length;
-
-        // MODIFICATION PRINCIPALE: Compter les dossiers transmis aux autorités
-        const transmis_autorite = reports.filter((r) => {
-            return (
-                // Option 1: Champ booléen
-                r.transmis_autorite === true ||
-                r.transmis_autorite === "true" ||
-
-                // Option 2: Champ texte spécifique
-                r.autorite === "bianco" ||
-                r.autorite === "BIANCO" ||
-
-                // Option 3: Autres champs possibles
-                r.bianco_transmis === true ||
-                r.bianco_transmis === "true" ||
-                r.transmission_autorite === true ||
-                r.transmission_autorite === "true" ||
-                r.soumis_autorite === true ||
-                r.soumis_autorite === "true" ||
-
-                // Option 4: Champ avec valeur numérique
-                r.transmis_autorite === 1 ||
-                r.autorite === 1 ||
-
-                // Option 5: Si c'est dans un sous-objet
-                (r.transmission && r.transmission.autorite) ||
-                (r.metadata && r.metadata.transmis_autorite) ||
-
-                // Option 6: Basé sur le statut
-                r.status === "transmis_autorite" ||
-                r.status === "transmis" ||
-                r.status === "soumis_autorite"
-            );
-        }).length;
+        const investigation = reports.filter((r) => r.status === "investigation").length;
+        const transmis_autorite = reports.filter((r) => r.status === "transmis_autorite").length;
+        const classifier = reports.filter((r) => r.status === "classifier").length;
 
         setGlobalStats({
             total,
             en_cours,
-            soumis_bianco,
-            enquetes_completees,
-            transmis_autorite
+            investigation,
+            transmis_autorite,
+            classifier
         });
 
         const updatedCategories = defaultCategoryStructure.map(
             (category, index) => {
                 const catReports = reports.filter((r) => r.category === category.id);
+
+                const cat_en_cours = catReports.filter((r) => r.status === "en_cours").length;
+                const cat_investigation = catReports.filter((r) => r.status === "investigation").length;
+                const cat_transmis_autorite = catReports.filter((r) => r.status === "transmis_autorite").length;
+                const cat_classifier = catReports.filter((r) => r.status === "classifier").length;
+
                 return {
                     ...category,
                     total: catReports.length,
-                    encours: catReports.filter((r) => r.status === "en_cours").length,
-                    soumis_bianco: catReports.filter((r) => r.status === "finalise")
-                        .length,
-                    enquetes_completees: catReports.filter(
-                        (r) => r.status === "classifier"
-                    ).length,
+                    encours: cat_en_cours,
+                    investigation: cat_investigation,
+                    transmis_autorite: cat_transmis_autorite,
+                    classifier: cat_classifier,
                     color: chartColors[index],
                 };
             }
@@ -368,7 +278,14 @@ export default function DashboardView() {
         let filtered = [...allReports];
 
         if (tableFilterStatus !== "all") {
-            filtered = filtered.filter((r) => r.status === tableFilterStatus);
+            // Pour "en_cours", inclure aussi "investigation" comme dans ReportsView
+            if (tableFilterStatus === "en_cours") {
+                filtered = filtered.filter((r) =>
+                    r.status === "en_cours" || r.status === "investigation"
+                );
+            } else {
+                filtered = filtered.filter((r) => r.status === tableFilterStatus);
+            }
         }
 
         // Appliquer le tri (nouveau style)
@@ -379,8 +296,8 @@ export default function DashboardView() {
             let bValue = b[sortConfig.key];
 
             if (sortConfig.key === "date") {
-                aValue = new Date(aValue || 0);
-                bValue = new Date(bValue || 0);
+                aValue = new Date(a.created_at || 0);
+                bValue = new Date(b.created_at || 0);
             }
 
             if (sortConfig.key === "reference") {
@@ -408,12 +325,16 @@ export default function DashboardView() {
         const endIndex = startIndex + pageSize;
         const slice = filtered.slice(startIndex, endIndex);
 
-        // Créer une description abrégée comme dans ReportsView
+        // Créer une description abrégée exactement comme dans ReportsView
         const mapped = slice.map((report) => {
             const fullDescription = report.description || "Aucune description";
             const shortDescription = fullDescription.length > 80
                 ? fullDescription.substring(0, 80) + '...'
                 : fullDescription;
+
+            // Obtenir le label de catégorie avec gestion des lignes
+            const cat = categories.find(c => c.id === report.category);
+            const categorieLabel = cat ? cat.name : report.category;
 
             return {
                 id: report.id,
@@ -421,16 +342,16 @@ export default function DashboardView() {
                 date: report.created_at
                     ? new Date(report.created_at).toLocaleDateString("fr-FR")
                     : "-",
-                name:
-                    report.type === "anonyme"
-                        ? "Anonyme"
-                        : report.name || "Non spécifié",
-                category: getCategoryLabel(report.category),
+                name: report.is_anonymous
+                    ? "Anonyme"
+                    : report.name || "Non spécifié",
+                category: categorieLabel,
                 regionprovince: report.region || "-",
-                state: getStatusText(report.status),
-                rawStatus: report.status,
+                status: report.status,
+                displayStatus: getDisplayStatus(report.status),
                 description: report.description || "Aucune description",
-                shortDescription: shortDescription, // Ajouté pour l'affichage tronqué
+                shortDescription: shortDescription,
+                rawStatus: report.status,
             };
         });
 
@@ -447,7 +368,20 @@ export default function DashboardView() {
     };
 
     const handleKPIClick = (status) => {
-        const newStatus = tableFilterStatus === status ? "all" : status;
+        let newStatus;
+
+        // Si on clique sur "en_cours" KPI, filtrer aussi les "investigation"
+        if (status === "en_cours") {
+            // Si le filtre actif est déjà "en_cours", le désactiver
+            if (tableFilterStatus === "en_cours") {
+                newStatus = "all";
+            } else {
+                newStatus = "en_cours";
+            }
+        } else {
+            newStatus = tableFilterStatus === status ? "all" : status;
+        }
+
         setTableFilterStatus(newStatus);
         setCurrentPage(1);
     };
@@ -457,18 +391,8 @@ export default function DashboardView() {
         let datasets = [];
         const now = new Date();
         const monthsShort = [
-            "Jan",
-            "Fév",
-            "Mar",
-            "Avr",
-            "Mai",
-            "Juin",
-            "Juil",
-            "Août",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Déc",
+            "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
+            "Juil", "Août", "Sep", "Oct", "Nov", "Déc"
         ];
 
         const makeDatasets = (labelArray, rangeChecks) => {
@@ -482,7 +406,7 @@ export default function DashboardView() {
                     }).length;
                 });
                 return {
-                    label: category.name,
+                    label: category.name.replace(/\n/g, ' '),
                     data,
                     borderColor: category.color.border,
                     backgroundColor: category.color.background,
@@ -534,13 +458,8 @@ export default function DashboardView() {
                 { length: 12 },
                 (_, i) => new Date(start.getFullYear(), start.getMonth() + i, 1)
             );
-            labels = months.map(
-                (m) =>
-                    `${monthsShort[m.getMonth()]} ${m
-                        .getFullYear()
-                        .toString()
-                        .slice(2)}`
-            );
+            // Afficher seulement le nom du mois, pas l'année
+            labels = months.map((m) => monthsShort[m.getMonth()]);
             const rangeChecks = months.map(
                 (m) => (d) =>
                     d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear()
@@ -559,25 +478,16 @@ export default function DashboardView() {
             (_, i) => new Date(start.getFullYear(), start.getMonth() + i, 1)
         );
         const monthsShort = [
-            "Jan",
-            "Fév",
-            "Mar",
-            "Avr",
-            "Mai",
-            "Juin",
-            "Juil",
-            "Août",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Déc",
+            "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
+            "Juil", "Août", "Sep", "Oct", "Nov", "Déc"
         ];
 
+        // Afficher seulement le nom du mois
         const labels = months.map((m) => monthsShort[m.getMonth()]);
 
         const datasets = categories.map((cat) => {
             return {
-                label: cat.name,
+                label: cat.name.replace(/\n/g, ' '),
                 data: months.map((m) =>
                     allReports.filter((r) => {
                         const d = new Date(r.created_at);
@@ -613,12 +523,34 @@ export default function DashboardView() {
                 plugins: {
                     legend: {
                         position: "bottom",
-                        labels: { usePointStyle: true, boxWidth: 8 },
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            font: {
+                                size: 9
+                            },
+                            padding: 15
+                        },
                     },
                 },
                 scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            font: {
+                                size: 10
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { borderDash: [2, 4] },
+                        ticks: {
+                            font: {
+                                size: 10
+                            }
+                        }
+                    },
                 },
             },
         });
@@ -644,7 +576,10 @@ export default function DashboardView() {
                         labels: {
                             usePointStyle: true,
                             boxWidth: 8,
-                            padding: 20,
+                            padding: 10,
+                            font: {
+                                size: 9
+                            }
                         }
                     },
                 },
@@ -652,6 +587,11 @@ export default function DashboardView() {
                     x: {
                         grid: {
                             display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 10
+                            }
                         }
                     },
                     y: {
@@ -661,15 +601,20 @@ export default function DashboardView() {
                                 if (Number.isInteger(value)) {
                                     return value;
                                 }
+                            },
+                            font: {
+                                size: 10
                             }
                         },
                         title: {
                             display: true,
-                            text: 'Nombre de signalements'
+                            text: 'Nombre de signalements',
+                            font: {
+                                size: 11
+                            }
                         }
                     }
                 },
-                // Pour afficher les barres côte à côte au lieu de les empiler
                 datasets: {
                     bar: {
                         categoryPercentage: 0.8,
@@ -694,7 +639,7 @@ export default function DashboardView() {
 
         // Créer les labels avec pourcentages
         const labelsWithPercent = validCats.map((c, i) =>
-            `${c.name} (${percentages[i]}%)`
+            `${c.name.replace(/\n/g, ' ')} (${percentages[i]}%)`
         );
 
         const ctx = pieChartRef.current.getContext("2d");
@@ -717,10 +662,11 @@ export default function DashboardView() {
                     legend: {
                         position: "right",
                         labels: {
-                            boxWidth: 12,
+                            boxWidth: 10,
                             font: {
-                                size: 11
-                            }
+                                size: 9
+                            },
+                            padding: 12
                         }
                     },
                     tooltip: {
@@ -739,22 +685,6 @@ export default function DashboardView() {
         });
     };
 
-    const getCategoryLabel = (id) =>
-        defaultCategoryStructure.find((c) => c.id === id)?.name || id;
-
-    const getStatusText = (status) => {
-        const map = {
-            en_cours: "Ouverture d'enquêtes", // MODIFICATION ICI
-            finalise: "Transmis aux autorités compétentes", // MODIFICATION ICI
-            classifier: "Dossier classé sans suite", // MODIFICATION ICI
-            doublon: "Doublon",
-            refuse: "Refusé",
-            transmis_autorite: "Transmis aux autorités compétentes", // MODIFICATION ICI
-            investigation: "Ouverture d'enquêtes", // MODIFICATION ICI
-        };
-        return map[status] || status;
-    };
-
     const getTimeFilterTitle = () => {
         switch (timeFilter) {
             case "day": return "Heures (24h)";
@@ -766,10 +696,10 @@ export default function DashboardView() {
     };
 
     const DatePicker = () => (
-        <div className="absolute top-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 min-w-64">
-            <div className="space-y-2">
+        <div className="absolute top-10 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-3 z-50 min-w-60">
+            <div className="space-y-1">
                 <button
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm text-gray-700"
                     onClick={() => {
                         setTimeFilter("day");
                         setShowDatePicker(false);
@@ -778,7 +708,7 @@ export default function DashboardView() {
                     Jour
                 </button>
                 <button
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm text-gray-700"
                     onClick={() => {
                         setTimeFilter("week");
                         setShowDatePicker(false);
@@ -787,7 +717,7 @@ export default function DashboardView() {
                     Semaine
                 </button>
                 <button
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm text-gray-700"
                     onClick={() => {
                         setTimeFilter("month");
                         setShowDatePicker(false);
@@ -796,7 +726,7 @@ export default function DashboardView() {
                     Mois
                 </button>
                 <button
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md text-gray-700 font-medium"
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm text-gray-700"
                     onClick={() => {
                         setTimeFilter("year");
                         setShowDatePicker(false);
@@ -855,7 +785,7 @@ export default function DashboardView() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent" />
             </div>
         );
     }
@@ -863,13 +793,13 @@ export default function DashboardView() {
     if (error) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-                    <h3 className="text-red-600 font-bold">Erreur</h3>
-                    <p className="text-slate-600 mt-2">{error}</p>
+                <div className="bg-white p-5 rounded-lg shadow-md border-l-4 border-red-500">
+                    <h3 className="text-red-600 font-bold text-sm">Erreur</h3>
+                    <p className="text-slate-600 mt-1 text-sm">{error}</p>
                     <button
                         type="button"
                         onClick={fetchDashboardData}
-                        className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-sm"
+                        className="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded text-xs"
                     >
                         Réessayer
                     </button>
@@ -879,25 +809,25 @@ export default function DashboardView() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-900">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="min-h-screen bg-slate-50 pb-8 font-sans text-slate-900">
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-5 space-y-5">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">
+                        <h1 className="text-xl font-bold text-slate-900">
                             Tableau de bord
                         </h1>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 mt-0.5">
                             Vue d'ensemble synchronisée en temps réel
                         </p>
                     </div>
                     <div className="relative">
                         <button
-                            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 bg-white"
+                            className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50 bg-white"
                             onClick={() => setShowDatePicker(!showDatePicker)}
                         >
                             <svg
-                                className="w-5 h-5 text-gray-500"
+                                className="w-4 h-4 text-gray-500"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -909,8 +839,7 @@ export default function DashboardView() {
                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                 />
                             </svg>
-                            <span>
-                Période:{" "}
+                            <span className="text-sm">
                                 {timeFilter === "day"
                                     ? "Jour"
                                     : timeFilter === "week"
@@ -918,17 +847,16 @@ export default function DashboardView() {
                                         : timeFilter === "month"
                                             ? "Mois"
                                             : "Année"}
-              </span>
+                            </span>
                         </button>
                         {showDatePicker && <DatePicker />}
                     </div>
                 </div>
 
                 {/* KPI Cards */}
-                {/* MODIFICATION ICI : Noms des KPI mis à jour */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     <KPICard
-                        title="Total Dossiers"
+                        title="Total"
                         value={globalStats.total}
                         subtitle="Tous les signalements"
                         icon="📊"
@@ -937,28 +865,37 @@ export default function DashboardView() {
                         onClick={() => handleKPIClick("all")}
                     />
                     <KPICard
-                        title="Ouverture d'enquêtes" // MODIFICATION ICI
+                        title="En cours"
                         value={globalStats.en_cours}
-                        subtitle="En cours de traitement"
-                        icon="🔍" // MODIFICATION ICI (nouvelle icône)
-                        color="bg-blue-500" // MODIFICATION ICI (couleur bleue)
+                        subtitle="Signalements en cours"
+                        icon="⏳"
+                        color="bg-yellow-500"
                         isActive={tableFilterStatus === "en_cours"}
                         onClick={() => handleKPIClick("en_cours")}
                     />
                     <KPICard
-                        title="Transmis aux autorités" // MODIFICATION ICI
-                        value={globalStats.transmis_autorite || 0}
-                        subtitle="Transmis pour action"
-                        icon="⚖️"
-                        color="bg-indigo-500" // MODIFICATION ICI (couleur indigo)
-                        isActive={tableFilterStatus === "finalise"}
-                        onClick={() => handleKPIClick("finalise")}
+                        title="Enquêtes"
+                        value={globalStats.investigation}
+                        subtitle="Investigation en cours"
+                        icon="🔍"
+                        color="bg-purple-500"
+                        isActive={tableFilterStatus === "investigation"}
+                        onClick={() => handleKPIClick("investigation")}
                     />
                     <KPICard
-                        title="Dossiers classés" // MODIFICATION ICI
-                        value={globalStats.enquetes_completees}
+                        title="Transmis"
+                        value={globalStats.transmis_autorite}
+                        subtitle="Transmis pour action"
+                        icon="⚖️"
+                        color="bg-indigo-500"
+                        isActive={tableFilterStatus === "transmis_autorite"}
+                        onClick={() => handleKPIClick("transmis_autorite")}
+                    />
+                    <KPICard
+                        title="Classés"
+                        value={globalStats.classifier}
                         subtitle="Classés sans suite"
-                        icon="📋" // MODIFICATION ICI (nouvelle icône)
+                        icon="📋"
                         color="bg-emerald-500"
                         isActive={tableFilterStatus === "classifier"}
                         onClick={() => handleKPIClick("classifier")}
@@ -966,41 +903,72 @@ export default function DashboardView() {
                 </div>
 
                 {/* Catégories */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {categories.map((category) => (
-                        <CategoryCard key={category.id} category={category} />
+                        <div key={category.id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-100 hover:shadow-md transition">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">{category.icon}</span>
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-semibold text-slate-800 whitespace-pre-line leading-tight">
+                                            {category.name}
+                                        </p>
+                                        <p className="text-xs text-slate-400">{category.subtitle}</p>
+                                    </div>
+                                </div>
+                                <p className="text-xl font-bold text-slate-900">{category.total}</p>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5 text-xs text-slate-500 border-t border-slate-100 pt-2">
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide">En cours</p>
+                                    <p className="font-semibold text-amber-600">{category.encours}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide">Enquêtes</p>
+                                    <p className="font-semibold text-purple-600">{category.investigation}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide">Transmis</p>
+                                    <p className="font-semibold text-indigo-600">{category.transmis_autorite}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide">Classés</p>
+                                    <p className="font-semibold text-emerald-600">{category.classifier}</p>
+                                </div>
+                            </div>
+                        </div>
                     ))}
                 </div>
 
                 {/* Graphiques */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-slate-800">Évolution temporelle</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-slate-800 text-sm">Évolution temporelle</h3>
                         </div>
-                        <div className="h-72 w-full">
+                        <div className="h-64 w-full">
                             <canvas ref={chartRef} />
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                        <h3 className="font-bold text-slate-800 mb-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                        <h3 className="font-bold text-slate-800 mb-3 text-sm">
                             Répartition par type
                         </h3>
-                        <div className="h-72 w-full flex items-center justify-center">
+                        <div className="h-64 w-full flex items-center justify-center">
                             <canvas ref={pieChartRef} />
                         </div>
                     </div>
                 </div>
 
-                {/* Graphique en barres - Chaque catégorie séparée */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                    <h3 className="font-bold text-slate-800 mb-4">
-                        Détails mensuels par catégorie (non empilé)
+                {/* Graphique en barres */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                    <h3 className="font-bold text-slate-800 mb-3 text-sm">
+                        Détails mensuels par catégorie
                     </h3>
-                    <div className="h-72 w-full">
+                    <div className="h-64 w-full">
                         <canvas ref={barChartRef} />
                     </div>
-                    <p className="text-xs text-slate-500 mt-4 text-center">
+                    <p className="text-xs text-slate-500 mt-3 text-center">
                         Chaque catégorie est représentée par des barres individuelles côte à côte pour chaque mois
                     </p>
                 </div>
@@ -1008,41 +976,41 @@ export default function DashboardView() {
                 {/* Tableau */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                     {/* Header table */}
-                    <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
-                        <div className="flex items-center gap-3">
-                            <h3 className="font-bold text-lg text-slate-800">
+                    <div className="px-4 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-slate-800 text-base">
                                 Liste des dossiers récents
                             </h3>
                             {tableFilterStatus !== "all" && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
-                  Filtre actif : {getStatusText(tableFilterStatus)}
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
+                                    Filtre : {getDisplayStatus(tableFilterStatus)}
                                     <button
                                         type="button"
                                         onClick={() => handleKPIClick("all")}
-                                        className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                                        className="ml-0.5 p-0.5 hover:bg-blue-100 rounded-full"
                                     >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-3 h-3"
-                    >
-                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                    </svg>
-                  </button>
-                </span>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="w-3 h-3"
+                                        >
+                                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                        </svg>
+                                    </button>
+                                </span>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-3 text-sm">
-                            <span className="text-slate-500">Lignes par page :</span>
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="text-slate-500 text-xs">Lignes :</span>
                             <select
                                 value={pageSize}
                                 onChange={(e) => {
                                     setPageSize(Number(e.target.value));
                                     setCurrentPage(1);
                                 }}
-                                className="form-select text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 py-1.5 px-3 bg-slate-50"
+                                className="form-select text-xs border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500 py-1 px-2 bg-slate-50"
                             >
                                 <option value={5}>5</option>
                                 <option value={10}>10</option>
@@ -1054,10 +1022,10 @@ export default function DashboardView() {
 
                     {/* Content table */}
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-100">
+                        <table className="min-w-full divide-y divide-slate-100 text-xs">
                             <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     <button
                                         onClick={() => handleSortClick("id")}
                                         className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full text-left"
@@ -1069,7 +1037,7 @@ export default function DashboardView() {
                                         />
                                     </button>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     <button
                                         onClick={() => handleSortClick("reference")}
                                         className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full text-left"
@@ -1081,7 +1049,7 @@ export default function DashboardView() {
                                         />
                                     </button>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     <button
                                         onClick={() => handleSortClick("date")}
                                         className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full text-left"
@@ -1093,14 +1061,13 @@ export default function DashboardView() {
                                         />
                                     </button>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    NOM
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    NOM / PRÉNOM
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[120px]">
                                     CATÉGORIE
                                 </th>
-                                {/* NOUVELLE COLONNE : DESCRIPTION */}
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     <button
                                         onClick={() => handleSortClick("description")}
                                         className="flex items-center gap-1 hover:text-blue-600 transition-colors w-full text-left"
@@ -1112,7 +1079,7 @@ export default function DashboardView() {
                                         />
                                     </button>
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     STATUT
                                 </th>
                             </tr>
@@ -1120,10 +1087,10 @@ export default function DashboardView() {
                             <tbody className="bg-white divide-y divide-slate-100">
                             {paginatedReports.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center">
+                                    <td colSpan="7" className="px-4 py-8 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
-                                            <span className="text-4xl mb-2">🔍</span>
-                                            <p className="text-sm">
+                                            <span className="text-3xl mb-1">🔍</span>
+                                            <p className="text-xs">
                                                 Aucun dossier trouvé pour ce filtre.
                                             </p>
                                         </div>
@@ -1135,29 +1102,42 @@ export default function DashboardView() {
                                         key={report.id}
                                         className="hover:bg-blue-50/30 transition-colors group cursor-default"
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-slate-700">
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
                                             {report.id}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-blue-600 group-hover:text-blue-700">
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-mono font-medium text-blue-600 group-hover:text-blue-700">
                                             {report.reference}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
                                             {report.date}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-slate-900">
                                             {report.name}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                        <td className="px-4 py-3 text-xs text-slate-600 whitespace-pre-line leading-tight">
                                             {report.category}
                                         </td>
-                                        {/* NOUVELLE COLONNE : DESCRIPTION (tronquée comme dans ReportsView) */}
-                                        <td className="px-6 py-4 max-w-[200px]">
+                                        <td className="px-4 py-3 max-w-[180px]">
                                             <div className="text-xs text-gray-600 line-clamp-2">
                                                 {report.shortDescription}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <StatusBadge status={report.rawStatus} />
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span
+                                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                    report.status === "en_cours"
+                                                        ? "bg-yellow-100 text-yellow-800"
+                                                        : report.status === "transmis_autorite"
+                                                            ? "bg-indigo-100 text-indigo-800"
+                                                            : report.status === "classifier"
+                                                                ? "bg-blue-100 text-blue-800"
+                                                                : report.status === "investigation"
+                                                                    ? "bg-purple-100 text-purple-800"
+                                                                    : "bg-gray-100 text-gray-800"
+                                                }`}
+                                            >
+                                                {report.displayStatus}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))
@@ -1166,17 +1146,17 @@ export default function DashboardView() {
                         </table>
                     </div>
 
-                    {/* Footer pagination - Style ReportsView */}
-                    <div className="bg-white px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                    {/* Footer pagination */}
+                    <div className="bg-white px-4 py-3 border-t border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs">
-                            <span>Éléments par page :</span>
+                            <span className="text-slate-500">Éléments par page :</span>
                             <select
                                 value={pageSize}
                                 onChange={(e) => {
                                     setPageSize(Number(e.target.value));
                                     setCurrentPage(1);
                                 }}
-                                className="px-2 py-1 border rounded-md text-xs"
+                                className="px-2 py-1 border rounded text-xs"
                             >
                                 <option value={5}>5</option>
                                 <option value={10}>10</option>
@@ -1184,45 +1164,45 @@ export default function DashboardView() {
                                 <option value={50}>50</option>
                             </select>
                             <span className="text-gray-500">
-                {filteredTotalCount === 0
-                    ? 0
-                    : (currentPage - 1) * pageSize + 1}
+                                {filteredTotalCount === 0
+                                    ? 0
+                                    : (currentPage - 1) * pageSize + 1}
                                 -
                                 {Math.min(currentPage * pageSize, filteredTotalCount)} sur{" "}
                                 {filteredTotalCount}
-              </span>
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="p-1 border rounded-md disabled:opacity-50 hover:bg-gray-50"
+                                className="p-1 border rounded disabled:opacity-50 hover:bg-gray-50"
                             >
-                                <ChevronLeft className="w-4 h-4" />
+                                <ChevronLeft className="w-3 h-3" />
                             </button>
 
                             {getPageNumbers().map((page, idx) =>
-                                    page === "..." ? (
-                                        <span
-                                            key={`ellipsis-${idx}`}
-                                            className="px-2 text-xs text-gray-500"
-                                        >
-                    ...
-                  </span>
-                                    ) : (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`px-2 py-1 text-xs border rounded-md ${
-                                                currentPage === page
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-white hover:bg-gray-50"
-                                            }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    )
+                                page === "..." ? (
+                                    <span
+                                        key={`ellipsis-${idx}`}
+                                        className="px-1.5 text-xs text-gray-500"
+                                    >
+                                        ...
+                                    </span>
+                                ) : (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`px-2 py-0.5 text-xs border rounded ${
+                                            currentPage === page
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-white hover:bg-gray-50"
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                )
                             )}
 
                             <button
@@ -1230,9 +1210,9 @@ export default function DashboardView() {
                                     setCurrentPage((p) => Math.min(totalPages, p + 1))
                                 }
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="p-1 border rounded-md disabled:opacity-50 hover:bg-gray-50"
+                                className="p-1 border rounded disabled:opacity-50 hover:bg-gray-50"
                             >
-                                <ChevronRight className="w-4 h-4" />
+                                <ChevronRight className="w-3 h-3" />
                             </button>
                         </div>
                     </div>
